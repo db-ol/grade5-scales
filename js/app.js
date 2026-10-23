@@ -353,9 +353,10 @@
         perf.steps[i].forEach(function (n) { (n.hand === 'rh' ? rh : lh).push(((n.midi % 12) + 12) % 12); });
         kbHandle.light(rh, lh);
       },
-      onEnd: function () {
+      onEnd: function (stopped, reason) {
         if (kbHandle) kbHandle.clear();
         if (onDone) onDone();
+        if (reason === 'nosound') toast('声音没有启动，请再点一次。');
       }
     });
     if (!ok) toast('这个浏览器不能播放示范声音。');
@@ -401,7 +402,12 @@
       Sound.stop();
       Voice.cancel();
       var minim = S.performance(cur.card).minim;
-      if (Sound.metronome(minim * state.settings.speed, 1)) metroOwner = 'draw';
+      var started = Sound.metronome(minim * state.settings.speed, 1, function () {
+        metroOwner = null;
+        syncMetroButton();
+        toast('声音没有启动，请再点一次。');
+      });
+      if (started) metroOwner = 'draw';
       else toast('这个浏览器不能播放声音。');
     }
     syncMetroButton();
@@ -609,6 +615,7 @@
     });
     $('exam-start').addEventListener('click', startExam);
     $('exam-say').addEventListener('click', function () {
+      Sound.unlock();
       var item = exam.items[exam.index];
       say(item.card, item.seed);
     });
@@ -941,6 +948,20 @@
     navigator.serviceWorker.register('sw.js').catch(function () { /* offline mode is optional */ });
   }
 
+  // Sound and speech stop when the phone locks or another app comes to the front, and the
+  // buttons go back to play, so the first tap after returning plays instead of stopping.
+  function bindLifecycle() {
+    // The audio module stops a metronome by itself after an interruption, so the button follows.
+    Sound.onReset(function () {
+      if (!Sound.metronomeOn()) metroOwner = null;
+      syncMetroButton();
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') stopAllSound();
+    });
+    window.addEventListener('pagehide', stopAllSound);
+  }
+
   function start() {
     renderTypeChips();
     bindDraw();
@@ -948,6 +969,7 @@
     bindScope();
     bindSettings();
     bindTabs();
+    bindLifecycle();
     renderScopeStatic();
     renderScope();
     syncExamSetup();

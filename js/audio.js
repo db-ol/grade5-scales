@@ -8,6 +8,21 @@
   var ctx = null;
   var master = null;
   var wave = null;
+  // Set when the page was hidden or the audio was interrupted. iOS can bring a context back stuck
+  // or silent, so the next tap builds a new one. 'slow' means it did not start in time but may yet.
+  var stale = false;
+  // Wall clock and context clock at the last tap, to spot a context that says 'running' but has stopped.
+  var lastWall = 0;
+  var lastCt = 0;
+  var lastRunning = false;
+  // Runs when sound stops without a tap (interruption or rebuild), so the page can reset its buttons.
+  var resetHandlers = [];
+
+  function noop() {}
+
+  function settle(p) {
+    if (p && p.catch) p.catch(noop);
+  }
 
   function context() {
     if (!ctx) {
@@ -32,14 +47,35 @@
       var amps = [0, 1, 0.42, 0.24, 0.16, 0.09, 0.06, 0.04, 0.025, 0.018, 0.012, 0.008, 0.005, 0.003, 0.002, 0.001];
       for (var i = 1; i < n; i++) imag[i] = amps[i];
       wave = ctx.createPeriodicWave(real, imag);
+      watch(ctx);
     }
     // 'suspended' before the first tap, and WebKit's 'interrupted' after a phone call or Siri.
-    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume();
+    if (ctx.state !== 'running' && ctx.state !== 'closed') settle(ctx.resume());
     return ctx;
+  }
+
+  // After the screen locks or Safari goes to the background, iOS can leave the context stuck in
+  // 'interrupted', with a resume() that never settles, or 'running' with a clock that no longer moves.
+  function broken() {
+    // A context that only started late is fine. Anything else still gets checked below.
+    if (stale === 'slow' && ctx.state === 'running') stale = false;
+    if (stale || ctx.state === 'interrupted' || ctx.state === 'closed') return true;
+    if (ctx.state !== 'running' || !lastRunning) return false;
+    var wall = Date.now() - lastWall;
+    return wall > 400 && (ctx.currentTime - lastCt) * 1000 < wall * 0.5;
+  }
+
+  // Drops the old context so context() builds a new one. Only call from a tap, where iOS lets it start.
+  function rebuild() {
+    halt();
+    var old = ctx;
+    ctx = master = wave = null;
+    try { settle(old.close()); } catch (e) { /* already closed */ }
   }
 
   // Call from a tap handler. iOS only starts audio inside a user gesture.
   function unlock() {
+    if (ctx && broken()) rebuild();
     var c = context();
     if (!c) return false;
     var buf = c.createBuffer(1, 1, 22050);
@@ -47,7 +83,86 @@
     src.buffer = buf;
     src.connect(c.destination);
     src.start(0);
+    stale = false;
+    mark(c);
     return true;
+  }
+
+  function mark(c) {
+    lastWall = Date.now();
+    lastCt = c.currentTime;
+    lastRunning = c.state === 'running';
+  }
+
+  // Stops the demo and metronome without a tap and tells the page.
+  function halt() {
+    var had = !!(current || metro);
+    stop();
+    stopMetronome();
+    if (had) resetHandlers.forEach(function (fn) { fn(); });
+  }
+
+  // Siri, an alarm or a call banner can interrupt the audio while the page stays visible.
+  // Our own suspend() on hide gives 'suspended', not 'interrupted', so this skips that case.
+  function watch(c) {
+    if (!c.addEventListener) return;
+    c.addEventListener('statechange', function () {
+      if (c !== ctx || c.state !== 'interrupted') return;
+      stale = true;
+      halt();
+    });
+  }
+
+  // Runs ok() once the context's clock is running, or fail() if it does not start in time.
+  // Notes scheduled on a stopped clock would never sound while the screen still showed them playing.
+  function whenRunning(c, ok, fail) {
+    if (c.state === 'running') return ok();
+    var done = false;
+    var timer = null;
+    function finish(good) {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      if (c.removeEventListener) c.removeEventListener('statechange', check);
+      if (good) {
+        // The clock check in broken() needs a starting point from a running context.
+        if (c === ctx) mark(c);
+        ok();
+      } else fail();
+    }
+    function check() {
+      if (c.state === 'running') finish(true);
+    }
+    if (c.addEventListener) c.addEventListener('statechange', check);
+    try {
+      var p = c.resume();
+      if (p && p.then) p.then(check, noop);
+    } catch (e) { /* closed */ }
+    timer = setTimeout(function () {
+      // The next tap starts over with a new context, unless this one has started by then.
+      if (c === ctx && !stale) stale = 'slow';
+      finish(false);
+    }, 2000);
+  }
+
+  // Everything stops when the page is hidden, so nothing plays late on return and the first tap plays.
+  function onHide() {
+    halt();
+    if (!ctx) return;
+    stale = true;
+    if (ctx.state !== 'closed') {
+      try { settle(ctx.suspend()); } catch (e) { /* not supported */ }
+    }
+  }
+
+  if (root.document && root.addEventListener) {
+    root.document.addEventListener('visibilitychange', function () {
+      if (root.document.visibilityState === 'hidden') onHide();
+    });
+    root.addEventListener('pagehide', onHide);
+    root.addEventListener('pageshow', function (e) {
+      if (e.persisted && ctx) stale = true;
+    });
   }
 
   function freq(midi) {
@@ -141,17 +256,33 @@
    * steps: array of time slots, each an array of { midi, hand } sounding together.
    * opts.stepDur is the length of one slot in seconds. The last slot is held longer.
    * opts.groupSize puts a light accent at the start of each group.
-   * opts.onStep(i) runs in time with the sound, opts.onEnd(stopped) when it finishes.
+   * opts.onStep(i) runs in time with the sound, opts.onEnd(stopped, reason) when it finishes.
+   * reason is 'nosound' when the audio could not start.
    */
   function play(steps, opts) {
     stop();
     var c = context();
     if (!c) return false;
+    var mine = { out: bus(), oscs: [], timers: [], onEnd: opts.onEnd };
+    current = mine;
+    whenRunning(c, function () {
+      if (current !== mine) return;
+      schedule(c, mine, steps, opts);
+    }, function () {
+      if (current !== mine) return;
+      current = null;
+      try { mine.out.disconnect(); } catch (e) { /* already gone */ }
+      if (opts.onEnd) opts.onEnd(true, 'nosound');
+    });
+    return true;
+  }
+
+  function schedule(c, mine, steps, opts) {
     var stepDur = opts.stepDur;
     var t0 = c.currentTime + 0.08;
-    var out = bus();
-    var oscs = [];
-    var timers = [];
+    var out = mine.out;
+    var oscs = mine.oscs;
+    var timers = mine.timers;
     var group = opts.groupSize || 4;
 
     steps.forEach(function (slot, i) {
@@ -168,15 +299,12 @@
     });
 
     var end = t0 + (steps.length - 1) * stepDur + Math.max(stepDur * 3, 0.9);
-    var mine = { out: out, oscs: oscs, timers: timers, onEnd: opts.onEnd };
-    current = mine;
     timers.push(setTimeout(function () {
       if (current !== mine) return;
       current = null;
       try { out.disconnect(); } catch (e) { /* already gone */ }
       if (opts.onEnd) opts.onEnd(false);
     }, (end - c.currentTime) * 1000 + 300));
-    return true;
   }
 
   function click(out, when, accent) {
@@ -195,27 +323,36 @@
   }
 
   // A metronome that ticks until stopped. beatsPerBar sets which beats are accented.
+  // onFail runs if the audio could not start.
   var metro = null;
 
-  function metronome(bpm, beatsPerBar) {
+  function metronome(bpm, beatsPerBar, onFail) {
     stopMetronome();
     var c = context();
     if (!c) return false;
     var period = 60 / bpm;
-    var next = c.currentTime + 0.1;
-    var beat = 0;
     var m = { timer: null, out: bus(), oscs: [] };
     metro = m;
-    (function schedule() {
+    whenRunning(c, function () {
       if (metro !== m) return;
-      while (next < c.currentTime + 0.25) {
-        m.oscs.push(click(m.out, next, beat % (beatsPerBar || 4) === 0));
-        next += period;
-        beat++;
-      }
-      m.oscs = m.oscs.slice(-8);
-      m.timer = setTimeout(schedule, 60);
-    })();
+      var next = c.currentTime + 0.1;
+      var beat = 0;
+      (function tick() {
+        if (metro !== m) return;
+        while (next < c.currentTime + 0.25) {
+          m.oscs.push(click(m.out, next, beat % (beatsPerBar || 4) === 0));
+          next += period;
+          beat++;
+        }
+        m.oscs = m.oscs.slice(-8);
+        m.timer = setTimeout(tick, 60);
+      })();
+    }, function () {
+      if (metro !== m) return;
+      metro = null;
+      try { m.out.disconnect(); } catch (e) { /* already gone */ }
+      if (onFail) onFail();
+    });
     return true;
   }
 
@@ -239,6 +376,7 @@
     isPlaying: isPlaying,
     metronome: metronome,
     stopMetronome: stopMetronome,
-    metronomeOn: function () { return !!metro; }
+    metronomeOn: function () { return !!metro; },
+    onReset: function (fn) { resetHandlers.push(fn); }
   };
 })(typeof self !== 'undefined' ? self : this);

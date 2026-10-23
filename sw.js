@@ -4,7 +4,7 @@
  * Only this app's own caches are touched, because other GitHub Pages projects share the origin.
  */
 var PREFIX = 'g5-scales-';
-var VERSION = PREFIX + 'v3';
+var VERSION = PREFIX + 'v4';
 var FILES = [
   './',
   'index.html',
