@@ -31,21 +31,21 @@
 
   var types = [
     requirement('scales', 'Scales', '同向音阶', 4, together, both, 'scale',
-      [major, harmonic, { keys: minors, quality: 'melodic' }], 'hands together', '双手相隔八度同向进行'),
+      [major, harmonic, { keys: minors, quality: 'melodic' }], 'hands an octave apart in similar motion', '双手相隔八度同向进行'),
     seventh
       ? requirement('thirdsApart', 'Scales a third apart', '双手相隔三度音阶', 4, together, both, 'apart',
-        tonal, 'hands a third apart', '左手从主音开始，右手高三度')
+        tonal, 'left hand starts on the tonic, right hand a third above', '左手从主音开始，右手高三度')
       : requirement('sixthsApart', 'Scales a sixth apart', '双手相隔六度音阶', 4, together, both, 'apart',
-        tonal, 'hands a sixth apart', '右手从主音开始，左手低六度'),
+        tonal, 'right hand starts on the tonic, left hand a sixth below', '右手从主音开始，左手低六度'),
     requirement('contrary', 'Scales in contrary motion', '反向音阶', 2, together, both, 'scale',
       tonal, 'both hands start on the tonic in unison', '两手从同一个主音开始反向进行'),
     requirement('legatoThirds', 'Legato scale in thirds', '三度双音连奏音阶', 2, separate, legato, 'legatoThirds',
-      doubleThirds, 'hands separately', '单手同时弹两个音，起始低音为主音'),
+      doubleThirds, 'one hand plays both notes, starting with the tonic below', '单手同时弹两个音，起始低音为主音'),
     seventh
       ? requirement('staccatoThirds', 'Staccato scale in thirds', '三度双音断奏音阶', 2, separate, ['staccato'], 'staccatoDoubles',
-        doubleThirds, 'hands separately', '单手同时弹两个音，起始低音为主音')
+        doubleThirds, 'one hand plays both notes, starting with the tonic below', '单手同时弹两个音，起始低音为主音')
       : requirement('staccatoSixths', 'Staccato scale in sixths', '六度双音断奏音阶', 2, separate, ['staccato'], 'staccatoDoubles',
-        [{ keys: ['C'], quality: 'major' }], 'hands separately', '单手同时弹两个音，起始高音为主音'),
+        [{ keys: ['C'], quality: 'major' }], 'one hand plays both notes, starting with the tonic above', '单手同时弹两个音，起始高音为主音'),
     seventh
       ? requirement('chromatic', 'Chromatic scale in contrary motion', '反向半音阶', 2, together, both, 'scale',
         [{ keys: ['C#'], rhStart: 'E', quality: 'chromatic' }], 'start a minor third apart', '两手从相隔小三度的音开始反向进行')
@@ -54,18 +54,18 @@
   ];
   if (!seventh) {
     types.push(requirement('wholeTone', 'Whole tone scales', '全音音阶', 4, together, both, 'scale',
-      [{ keys: ['Eb', 'C'], quality: 'wholeTone' }], 'hands together', '双手相隔八度同向进行'));
+      [{ keys: ['Eb', 'C'], quality: 'wholeTone' }], 'hands an octave apart in similar motion', '双手相隔八度同向进行'));
   }
   var arpeggios = requirement('arpeggios', 'Arpeggios', '琶音', 4, together, legato, 'arpeggio',
     [major, { keys: minors, quality: 'minor' }],
-    seventh ? 'hands together in first inversion' : 'hands together in second inversion',
+    seventh ? 'hands together in first inversion, starting on the third' : 'hands together in second inversion, starting on the fifth',
     seventh ? '双手弹第一转位，从三音开始' : '双手弹第二转位，从五音开始');
   arpeggios.inversion = seventh ? 1 : 2;
   types.push(arpeggios,
     requirement('dom7', 'Dominant sevenths', '属七和弦琶音', 4, together, legato, 'arpeggio',
-      [{ keys: majors, quality: 'dom7' }], 'hands together, resolving to the tonic', '双手从属音开始，最后解决到主音'),
+      [{ keys: majors, quality: 'dom7' }], 'hands together, starting on the dominant and resolving to the tonic', '双手从属音开始，最后解决到主音'),
     requirement('dim7', 'Diminished sevenths', '减七和弦琶音', 4, together, legato, 'arpeggio',
-      [{ keys: sevenths, quality: 'dim7' }], 'hands together', '双手相隔八度同向进行'));
+      [{ keys: sevenths, quality: 'dim7' }], 'hands an octave apart in similar motion', '双手相隔八度同向进行'));
 
   function speed(minim) { return { minim: minim, notesPerBeat: 4 }; }
   return {

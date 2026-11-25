@@ -5,8 +5,6 @@
 (function () {
   'use strict';
 
-  // The artifact build has no <html lang> of its own, and the page is Chinese either way.
-  document.documentElement.lang = 'zh-CN';
   // iOS Safari only applies :active styles on tap when a touch listener exists.
   document.addEventListener('touchstart', function () {}, { passive: true });
 
@@ -17,6 +15,7 @@
   var PREFS_KEY = 'piano-scales-settings-v1';
   var GRADE_NAMES = { 5: '五级', 7: '七级', 8: '八级' };
   var DEFAULTS = {
+    uiLanguage: 'zh',
     lang: 'en',
     voiceEn: '',
     voiceZh: '',
@@ -33,6 +32,7 @@
     examBlind: true
   };
   var RATE_ZH = ['没弹好', '还可以', '很熟练'];
+  var RATE_EN = ['Needs work', 'Getting there', 'Confident'];
 
   function $(id) {
     return document.getElementById(id);
@@ -63,6 +63,7 @@
   delete settings.examSize;
   delete settings.types;
   if ([5, 7, 8].indexOf(settings.grade) === -1) settings.grade = 5;
+  if (settings.uiLanguage !== 'en') settings.uiLanguage = 'zh';
 
   var S = window.Syllabus.forGrade(settings.grade);
   var practiceByGrade = {};
@@ -103,6 +104,18 @@
   }
 
   // ---------- Small helpers ----------
+
+  function ui(zh, en) {
+    return settings.uiLanguage === 'en' ? en : zh;
+  }
+
+  function gradeName() {
+    return ui(GRADE_NAMES[settings.grade], 'Grade ' + settings.grade);
+  }
+
+  function ratingLabel(r) {
+    return r === -1 ? ui('未练', 'Untried') : ui(RATE_ZH[r], RATE_EN[r]);
+  }
 
   var toastTimer = null;
 
@@ -170,7 +183,7 @@
 
   function say(card, seed) {
     if (!Voice.supported) {
-      toast('这个浏览器不支持语音朗读，请换 Safari 或 Chrome。');
+      toast(ui('这个浏览器不支持语音朗读，请换 Safari 或 Chrome。', 'This browser does not support spoken prompts. Try Safari or Chrome.'));
       return;
     }
     Sound.stop();
@@ -240,7 +253,9 @@
     title.innerHTML = S.titleHtml(card);
     title.classList.toggle('long', title.textContent.length > 10);
     $(prefix + '-en').textContent = S.detailEn(card);
-    $(prefix + '-zh').textContent = S.detailZh(card);
+    var translation = $(prefix + '-zh');
+    translation.textContent = ui(S.detailZh(card), '');
+    translation.hidden = !translation.textContent;
     var speech = $(prefix + '-speech');
     speech.textContent = '“' + speechText(card, seed) + '”';
     speech.lang = settings.lang === 'zh' ? 'zh-CN' : 'en';
@@ -261,7 +276,7 @@
   // Reminder and minor form toggle sit outside the veil, so they wait until the card is shown.
   function renderHints() {
     var card = cur.card;
-    var reminder = cur.revealed ? S.reminderZh(card) : '';
+    var reminder = cur.revealed ? S.reminder(card, settings.uiLanguage) : '';
     $('card-reminder').textContent = reminder;
     $('card-reminder').hidden = !reminder;
     $('minor-form').hidden = !card.minorChoice || !cur.revealed;
@@ -287,13 +302,15 @@
       low: shown.low,
       high: shown.high,
       marks: cur.notesShown && cur.revealed ? shown.marks : [],
-      ariaLabel: cur.notesShown && cur.revealed ? '键盘上标出了这一项用到的音' : '键盘'
+      ariaLabel: cur.notesShown && cur.revealed
+        ? ui('键盘上标出了这一项用到的音', 'Keyboard showing the notes for this exercise')
+        : ui('键盘', 'Keyboard')
     });
     if (!cur.notesShown || !cur.revealed) {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'reveal-notes';
-      b.textContent = cur.revealed ? '点这里显示音符' : '看题和音符';
+      b.textContent = cur.revealed ? ui('点这里显示音符', 'Show notes') : ui('看题和音符', 'Show exercise and notes');
       b.addEventListener('click', function () {
         cur.notesShown = true;
         if (!cur.revealed) reveal();
@@ -316,21 +333,23 @@
     var names = S.octaveNames(card, settings.minorForm);
     var rows = [];
     if (names.lower) {
-      rows.push(['下方音', fmt(names.lower)], ['上方音', fmt(names.upper)]);
+      rows.push([ui('下方音', 'Lower notes'), fmt(names.lower)], [ui('上方音', 'Upper notes'), fmt(names.upper)]);
     } else if (names.lh) {
-      rows.push(['左手', fmt(names.lh)], ['右手', fmt(names.rh)]);
+      rows.push([ui('左手', 'Left hand'), fmt(names.lh)], [ui('右手', 'Right hand'), fmt(names.rh)]);
     } else if (card.type === 'arpeggios' || card.type === 'dim7' || card.type === 'dom7') {
-      rows.push(['和弦音', fmt(names.up)]);
-      if (names.resolution) rows.push(['解决', fmt(names.resolution)]);
+      rows.push([ui('和弦音', 'Chord tones'), fmt(names.up)]);
+      if (names.resolution) rows.push([ui('解决', 'Resolution'), fmt(names.resolution)]);
     } else {
-      rows.push([names.down ? '上行' : '音阶', fmt(names.up)]);
+      rows.push([names.down ? ui('上行', 'Ascending') : ui('音阶', 'Scale'), fmt(names.up)]);
       if (names.down) {
-        rows.push(['下行', fmt(names.down)]);
-        rows.push(['图例', '<span class="legend-dot"></span>实心圆：上行的音　<span class="legend-dot hollow"></span>空心圆：只在下行用到']);
+        rows.push([ui('下行', 'Descending'), fmt(names.down)]);
+        rows.push([ui('图例', 'Key'),
+          '<span class="legend-dot"></span>' + ui('实心圆：上行的音　', 'Solid dots for ascending notes. ') +
+          '<span class="legend-dot hollow"></span>' + ui('空心圆：只在下行用到', 'Hollow dots for descending only.'), 'legend']);
       }
     }
     dl.innerHTML = rows.map(function (r) {
-      var cls = r[0] === '图例' ? ' class="legend"' : '';
+      var cls = r[2] === 'legend' ? ' class="legend"' : '';
       return '<dt>' + r[0] + '</dt><dd' + cls + '>' + r[1] + '</dd>';
     }).join('');
   }
@@ -348,9 +367,9 @@
     start.setHours(0, 0, 0, 0);
     var today = practice.log.filter(function (e) { return e[0] >= start.getTime(); }).length;
     $('stats').innerHTML =
-      '<span>今天练了 <b>' + today + '</b> 题</span>' +
-      '<span>很熟练 <b>' + good + '</b> / ' + all + '</span>' +
-      (weak ? '<span>待加强 <b>' + weak + '</b></span>' : '');
+      '<span>' + ui('今天练了', 'Practised today') + ' <b>' + today + '</b>' + ui(' 题', '') + '</span>' +
+      '<span>' + ratingLabel(2) + ' <b>' + good + '</b> / ' + all + '</span>' +
+      (weak ? '<span>' + ui('待加强', 'Needs work') + ' <b>' + weak + '</b></span>' : '');
   }
 
   function setDemoButton(playing) {
@@ -358,7 +377,7 @@
     b.setAttribute('data-on', String(playing));
     showEl(b.querySelector('.i-play'), !playing);
     showEl(b.querySelector('.i-stop'), playing);
-    b.querySelector('span').textContent = playing ? '停止' : '听示范';
+    b.querySelector('span').textContent = playing ? ui('停止', 'Stop') : ui('听示范', 'Play demo');
   }
 
   function playDemo(card, kbHandle, onDone) {
@@ -381,10 +400,10 @@
       onEnd: function (stopped, reason) {
         if (kbHandle) kbHandle.clear();
         if (onDone) onDone();
-        if (reason === 'nosound') toast('声音没有启动，请再点一次。');
+        if (reason === 'nosound') toast(ui('声音没有启动，请再点一次。', 'Tap again to start audio.'));
       }
     });
-    if (!ok) toast('这个浏览器不能播放示范声音。');
+    if (!ok) toast(ui('这个浏览器不能播放示范声音。', 'This browser cannot play the demo.'));
     return ok;
   }
 
@@ -408,14 +427,16 @@
     b.setAttribute('data-on', String(on));
     var minim = S.SPEED[S.TYPE_BY_ID[cur.card.type].speed].minim;
     var bpm = Math.round(minim * settings.speed);
-    $('metro-label').textContent = on ? '停止' : '节拍器';
+    $('metro-label').textContent = on ? ui('停止', 'Stop') : ui('节拍器', 'Metronome');
     // The tempo can give away the requirement in a listening exercise.
-    $('metro-speed').innerHTML = cur.revealed ? MINIM_SVG + ' = ' + bpm : '';
+    $('metro-speed').innerHTML = cur.revealed ? minimIcon() + ' = ' + bpm : '';
   }
 
-  var MINIM_SVG = '<svg class="minim" viewBox="0 0 10 20" aria-label="二分音符" role="img">' +
-    '<ellipse cx="4.2" cy="16" rx="3.4" ry="2.4" transform="rotate(-22 4.2 16)" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
-    '<path d="M7.3 15.2V1.5" stroke="currentColor" stroke-width="1.3"/></svg>';
+  function minimIcon() {
+    return '<svg class="minim" viewBox="0 0 10 20" aria-label="' + ui('二分音符', 'Minim') + '" role="img">' +
+      '<ellipse cx="4.2" cy="16" rx="3.4" ry="2.4" transform="rotate(-22 4.2 16)" fill="none" stroke="currentColor" stroke-width="1.4"/>' +
+      '<path d="M7.3 15.2V1.5" stroke="currentColor" stroke-width="1.3"/></svg>';
+  }
 
   function toggleMetro() {
     if (metroOwner === 'draw' && Sound.metronomeOn()) {
@@ -429,19 +450,19 @@
       var started = Sound.metronome(minim * settings.speed, 1, function () {
         metroOwner = null;
         syncMetroButton();
-        toast('声音没有启动，请再点一次。');
+        toast(ui('声音没有启动，请再点一次。', 'Tap again to start audio.'));
       });
       if (started) metroOwner = 'draw';
-      else toast('这个浏览器不能播放声音。');
+      else toast(ui('这个浏览器不能播放声音。', 'This browser cannot play audio.'));
     }
     syncMetroButton();
   }
 
   function renderTypeChips() {
     var box = $('type-chips');
-    var html = '<button class="chip" type="button" data-type="all">全部</button>';
+    var html = '<button class="chip" type="button" data-type="all">' + ui('全部', 'All') + '</button>';
     S.TYPES.forEach(function (t) {
-      html += '<button class="chip" type="button" data-type="' + t.id + '">' + t.zh.replace(/（.*）/, '') + '</button>';
+      html += '<button class="chip" type="button" data-type="' + t.id + '">' + ui(t.zh.replace(/（.*）/, ''), t.en) + '</button>';
     });
     box.innerHTML = html;
     syncTypeChips();
@@ -493,7 +514,7 @@
       var r = +b.getAttribute('data-rate');
       record(cur.card.id, r);
       savePractice();
-      toast('记下了：' + RATE_ZH[r]);
+      toast(ui('记下了：', 'Rating saved. ') + ratingLabel(r));
       showCard(nextCard(), settings.autoSpeak);
       bringCardIntoView();
     });
@@ -514,7 +535,7 @@
 
   // ---------- Mock exam ----------
 
-  var exam = { items: [], index: 0, ratings: [], saved: [], started: 0, timer: null, revealed: false };
+  var exam = { items: [], index: 0, ratings: [], saved: [], lastSavedCount: 0, started: 0, elapsed: 0, timer: null, revealed: false };
 
   function startExam() {
     stopAllSound();
@@ -534,7 +555,7 @@
     $('exam-run').hidden = false;
     $('exam-total').textContent = exam.items.length;
     KB.render($('exam-keys'), { low: 60, high: 76, marks: [], ariaLabel: '' });
-    showExamItem(true);
+    showExamItem();
   }
 
   function tickClock() {
@@ -542,21 +563,26 @@
     $('exam-clock').textContent = Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
   }
 
-  function showExamItem(speak) {
+  function renderExamItem() {
     var item = exam.items[exam.index];
-    exam.revealed = !settings.examBlind;
     fillFallboard('exam', item.card, item.seed);
     $('exam-veil').hidden = exam.revealed;
     $('exam-index').textContent = exam.index + 1;
     $('exam-bar').style.width = Math.round((exam.index / exam.items.length) * 100) + '%';
-    $('exam-next-label').textContent = exam.index === exam.items.length - 1 ? '结束' : '下一项';
-    if (speak) say(item.card, item.seed);
+    $('exam-next-label').textContent = exam.index === exam.items.length - 1 ? ui('结束', 'Finish') : ui('下一项', 'Next');
+  }
+
+  function showExamItem() {
+    exam.revealed = !settings.examBlind;
+    renderExamItem();
+    var item = exam.items[exam.index];
+    say(item.card, item.seed);
   }
 
   function nextExamItem() {
     if (exam.index < exam.items.length - 1) {
       exam.index++;
-      showExamItem(true);
+      showExamItem();
     } else {
       finishExam();
     }
@@ -568,37 +594,69 @@
     $('exam-bar').style.width = '100%';
     $('exam-run').hidden = true;
     $('exam-done').hidden = false;
-    var secs = Math.floor((Date.now() - exam.started) / 1000);
-    $('exam-done-meta').textContent = '共 ' + exam.items.length + ' 项，用时 ' + Math.floor(secs / 60) + ' 分 ' + (secs % 60) + ' 秒。给每一项选一个评价，然后保存。可以点 ▶ 听示范对照。';
-    var html = '';
-    exam.items.forEach(function (item, i) {
+    exam.elapsed = Math.floor((Date.now() - exam.started) / 1000);
+    exam.lastSavedCount = 0;
+    exam.saved = exam.items.map(function () { return -1; });
+    $('exam-summary').innerHTML = exam.items.map(function (item, i) {
       var c = item.card;
-      var name = S.detailZh(c);
-      html +=
+      return (
         '<li class="summary-item" data-i="' + i + '">' +
         '<div class="summary-head">' +
         '<span class="item-name"><span lang="en">' + escapeHtml(S.TYPE_BY_ID[c.type].eyebrow) + ' · ' + S.titleHtml(c) + '</span>' +
-        '<span class="item-sub">' + escapeHtml(S.detailZh(c)) + '</span></span>' +
-        '<button class="mini-btn" type="button" data-play="' + i + '" data-on="false" aria-pressed="false" data-name="' + escapeHtml(name) + '" aria-label="听示范：' + escapeHtml(name) + '">' +
+        '<span class="item-sub"></span></span>' +
+        '<button class="mini-btn" type="button" data-play="' + i + '" data-on="false" aria-pressed="false">' +
         '<svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>' +
         '<svg class="i-stop" viewBox="0 0 24 24" aria-hidden="true" hidden><rect x="6.5" y="6.5" width="11" height="11" rx="1.5" fill="currentColor"/></svg></button>' +
         '</div>' +
-        '<div class="seg" role="group" aria-label="自评：' + escapeHtml(name) + '">' +
-        '<button type="button" data-rate="0" aria-pressed="false">没弹好</button>' +
-        '<button type="button" data-rate="1" aria-pressed="false">还可以</button>' +
-        '<button type="button" data-rate="2" aria-pressed="false">很熟练</button>' +
-        '</div></li>';
+        '<div class="seg" role="group">' +
+        '<button type="button" data-rate="0" aria-pressed="false"></button>' +
+        '<button type="button" data-rate="1" aria-pressed="false"></button>' +
+        '<button type="button" data-rate="2" aria-pressed="false"></button>' +
+        '</div></li>');
+    }).join('');
+    renderExamSummaryText();
+  }
+
+  function renderExamSummaryText() {
+    var mins = Math.floor(exam.elapsed / 60);
+    var secs = exam.elapsed % 60;
+    $('exam-done-meta').textContent = ui(
+      '共 ' + exam.items.length + ' 项，用时 ' + mins + ' 分 ' + secs + ' 秒。给每一项选一个评价，然后保存。可以点 ▶ 听示范对照。',
+      exam.items.length + ' exercises in ' + mins + ' min ' + secs + ' sec. Rate the exercises you played, then save. Tap play to hear an example.'
+    );
+    Array.prototype.forEach.call($('exam-summary').children, function (row, i) {
+      var card = exam.items[i].card;
+      var zh = S.detailZh(card);
+      var name = ui(zh, S.speechEn(card, 'plain'));
+      row.querySelector('.item-sub').textContent = ui(zh, S.detailEn(card));
+      var play = row.querySelector('[data-play]');
+      play.setAttribute('data-name', name);
+      setSummaryPlaying(play, play.getAttribute('data-on') === 'true');
+      row.querySelector('.seg').setAttribute('aria-label', ui('自评：', 'Rate ') + name);
+      Array.prototype.forEach.call(row.querySelectorAll('[data-rate]'), function (b) {
+        b.textContent = ratingLabel(+b.getAttribute('data-rate'));
+      });
     });
-    $('exam-summary').innerHTML = html;
-    exam.saved = exam.items.map(function () { return -1; });
-    $('exam-save').disabled = false;
-    $('exam-save').textContent = '保存自评';
+    syncExamSave();
+  }
+
+  function syncExamSave() {
+    var saved = exam.lastSavedCount > 0;
+    var changed = exam.ratings.some(function (r, i) { return r !== exam.saved[i]; });
+    var b = $('exam-save');
+    b.disabled = saved && !changed;
+    if (b.disabled) b.textContent = savedRatingsText(exam.lastSavedCount);
+    else b.textContent = saved ? ui('保存修改', 'Save changes') : ui('保存自评', 'Save ratings');
+  }
+
+  function savedRatingsText(n) {
+    return ui('已保存 ' + n + ' 项', 'Saved ' + n + (n === 1 ? ' rating' : ' ratings'));
   }
 
   function setSummaryPlaying(btn, on) {
     btn.setAttribute('data-on', String(on));
     btn.setAttribute('aria-pressed', String(on));
-    btn.setAttribute('aria-label', (on ? '停止示范：' : '听示范：') + btn.getAttribute('data-name'));
+    btn.setAttribute('aria-label', (on ? ui('停止示范：', 'Stop example for ') : ui('听示范：', 'Play example for ')) + btn.getAttribute('data-name'));
     showEl(btn.querySelector('.i-play'), !on);
     showEl(btn.querySelector('.i-stop'), on);
   }
@@ -613,9 +671,24 @@
 
   function syncExamSetup() {
     var st = settings;
-    setPressed($('exam-size'), 'data-extra', st.examExtra);
+    var sizes = $('exam-size');
+    if (!sizes.children.length) {
+      sizes.innerHTML = [0, 4, 8].map(function (extra) {
+        return '<button type="button" data-extra="' + extra + '"></button>';
+      }).join('');
+    }
+    Array.prototype.forEach.call(sizes.children, function (b) {
+      b.textContent = (S.TYPES.length + Number(b.getAttribute('data-extra'))) + ui(' 项', ' items');
+    });
+    setPressed(sizes, 'data-extra', st.examExtra);
     setPressed($('exam-order'), 'data-order', st.examOrder);
     $('exam-blind').checked = !!st.examBlind;
+  }
+
+  function refreshExamLanguage() {
+    syncExamSetup();
+    if (!$('exam-run').hidden) renderExamItem();
+    if (!$('exam-done').hidden) renderExamSummaryText();
   }
 
   function bindExam() {
@@ -667,11 +740,7 @@
       var i = +li.getAttribute('data-i');
       exam.ratings[i] = +b.getAttribute('data-rate');
       setPressed(li, 'data-rate', exam.ratings[i]);
-      // A change after saving can be saved again.
-      if ($('exam-save').disabled && exam.ratings[i] !== exam.saved[i]) {
-        $('exam-save').disabled = false;
-        $('exam-save').textContent = '保存修改';
-      }
+      syncExamSave();
     });
     $('exam-save').addEventListener('click', function () {
       var n = 0;
@@ -684,15 +753,15 @@
       });
       if (!n) {
         var any = exam.ratings.some(function (r) { return r >= 0; });
-        toast(any ? '没有新的修改' : '先给至少一项选一个评价');
+        toast(any ? ui('没有新的修改', 'No changes to save') : ui('先给至少一项选一个评价', 'Rate at least one exercise first'));
         return;
       }
       savePractice();
       renderStats();
       renderScope();
-      this.disabled = true;
-      this.textContent = '已保存 ' + n + ' 项';
-      toast('已保存 ' + n + ' 项自评');
+      exam.lastSavedCount = n;
+      syncExamSave();
+      toast(savedRatingsText(n));
     });
     $('exam-again').addEventListener('click', startExam);
   }
@@ -700,8 +769,7 @@
   // ---------- Scope view ----------
 
   function pillHtml(r) {
-    var label = r === -1 ? '未练' : RATE_ZH[r];
-    return '<span class="pill" data-state="' + r + '">' + label + '</span>';
+    return '<span class="pill" data-state="' + r + '">' + ratingLabel(r) + '</span>';
   }
 
   function renderScope() {
@@ -709,26 +777,29 @@
     var good = S.CARDS.filter(function (c) { return stateOf(c.id) === 2; }).length;
     var tried = S.CARDS.filter(function (c) { return stateOf(c.id) !== -1; }).length;
     $('scope-summary').innerHTML =
-      '<h2>' + GRADE_NAMES[settings.grade] + '音阶与琶音，共 ' + all + ' 项</h2>' +
+      '<h2>' + gradeName() + ui('音阶与琶音，共 ' + all + ' 项', ' scales and arpeggios (' + all + ' exercises)') + '</h2>' +
       '<div class="progress" aria-hidden="true"><span style="width:' + Math.round((good / all) * 100) + '%"></span></div>' +
-      '<p class="note">很熟练 ' + good + ' 项，练过 ' + tried + ' 项。点选题目即可练习。</p>' +
-      '<p class="note">分手项目按左手和右手分别计数。' +
-      (settings.grade === 5 ? '' : '考官可指定的小调形式和奏法也分别计数。') + '</p>';
+      '<p class="note">' + ui('很熟练 ' + good + ' 项，练过 ' + tried + ' 项。点选题目即可练习。',
+        'Practised ' + tried + ' of ' + all + '. Rated confident on ' + good + '. Choose an exercise to practise.') + '</p>' +
+      '<p class="note">' + ui('分手项目按左手和右手分别计数。', 'When hands are played separately, each hand counts as one exercise.') +
+      (settings.grade === 5 ? '' : ui('考官可指定的小调形式和奏法也分别计数。',
+        ' Each minor form and articulation the examiner can request also counts separately.')) + '</p>';
 
     var html = '';
     S.TYPES.forEach(function (t) {
       var cards = S.CARDS.filter(function (c) { return c.type === t.id; });
       var good = cards.filter(function (c) { return stateOf(c.id) === 2; }).length;
       html += '<section class="panel">' +
-        '<div class="cat-head"><h3><span lang="en">' + escapeHtml(t.enLong) + '</span><span class="zh">' + t.zh + '</span></h3>' +
+        '<div class="cat-head"><h3><span lang="en">' + escapeHtml(t.enLong) + '</span>' + ui('<span class="zh">' + t.zh + '</span>', '') + '</h3>' +
         '<span class="count">' + good + ' / ' + cards.length + '</span></div>' +
         '<dl class="meta-grid">' +
-        '<dt>音域</dt><dd>' + t.octaves + ' 个八度</dd>' +
-        '<dt>要求</dt><dd><span lang="en">' + escapeHtml(t.requirement) + '</span><br>' + escapeHtml(t.requirementZh) + '</dd>' +
-        '<dt>参考速度</dt><dd>二分音符 ＝ ' + S.SPEED[t.speed].minim + '</dd>' +
+        '<dt>' + ui('音域', 'Range') + '</dt><dd>' + t.octaves + ui(' 个八度', ' octaves') + '</dd>' +
+        '<dt>' + ui('要求', 'How to play') + '</dt><dd><span lang="en">' + escapeHtml(t.requirement) + '</span>' +
+        ui('<br>' + escapeHtml(t.requirementZh), '') + '</dd>' +
+        '<dt>' + ui('参考速度', 'Guide tempo') + '</dt><dd>' + ui('二分音符 ＝ ', 'Minim = ') + S.SPEED[t.speed].minim + '</dd>' +
         '</dl><ul class="items">';
       cards.forEach(function (c) {
-        var sub = S.detailZh(c);
+        var sub = ui(S.detailZh(c), S.detailEn(c));
         html += '<li class="item"><button class="item-open" type="button" data-card="' + c.id + '">' +
           '<span class="item-name"><span lang="en">' + S.titleHtml(c) + '</span><span class="item-sub">' + escapeHtml(sub) + '</span></span></button>' +
           pillHtml(stateOf(c.id)) + '</li>';
@@ -741,47 +812,55 @@
   function renderScopeStatic() {
     var grade = settings.grade;
     var page = { 5: 35, 7: 41, 8: 44 }[grade];
-    var inversion = { 5: '原位', 7: '第一转位', 8: '第二转位' }[grade];
+    var inversion = { 5: ui('原位', 'root position'), 7: ui('第一转位', 'first inversion'), 8: ui('第二转位', 'second inversion') }[grade];
     var minorRule = grade === 5
-      ? '同向音阶和断奏音阶的小调形式由考生自选。反向的升c小调须弹和声小调。'
-      : '同向小调音阶要准备和声与旋律两种形式，由考官指定。反向音阶和双手相隔音程的小调音阶均用和声小调。';
+      ? ui('同向音阶和断奏音阶的小调形式由考生自选。反向的升c小调须弹和声小调。',
+        'For similar motion and staccato minor scales, choose harmonic or melodic minor. The C sharp minor scale in contrary motion must be harmonic.')
+      : ui('同向小调音阶要准备和声与旋律两种形式，由考官指定。反向音阶和双手相隔音程的小调音阶均用和声小调。',
+        'Prepare both harmonic and melodic minor for ordinary similar motion scales. The examiner chooses the form. Use harmonic minor for contrary motion and for the scales ' + (grade === 7 ? 'a third' : 'a sixth') + ' apart.');
     $('scope-rules').innerHTML =
-      '<h2>考试规则</h2><ul>' +
-      '<li>全部背谱，音符均匀，不用踏板。指法可以自选。</li>' +
-      '<li>可以从任一合适的八度开始，按规定音域往返。双手通常相隔一个八度，另有起音或音程要求的题目以卡片为准。</li>' +
+      '<h2>' + ui('考试规则', 'Exam requirements') + '</h2><ul>' +
+      '<li>' + ui('全部背谱，音符均匀，不用踏板。指法可以自选。',
+        'Play from memory with even notes and without pedal. You may choose your own fingering.') + '</li>' +
+      '<li>' + ui('可以从任一合适的八度开始，按规定音域往返。双手通常相隔一个八度，另有起音或音程要求的题目以卡片为准。',
+        'Start in any suitable octave and cover the full range in both directions. Hands usually play an octave apart. Follow the starting notes or interval on the card when specified.') + '</li>' +
       '<li>' + minorRule + '</li>' +
-      '<li>本级大小调琶音均用' + inversion + '。' +
-      (grade === 5 ? '' : '属七和弦琶音在结尾解决到主音。') + '</li>' +
-      '<li>考官通常每类至少问一项，同类先大调后小调。分手项目会指定左手或右手。' +
-      (grade === 5 ? '' : '连奏和断奏都要求准备的项目，考官会指定奏法。') + '</li></ul>';
+      '<li>' + ui('本级大小调琶音均用' + inversion + '。', 'Play all major and minor arpeggios in ' + inversion + '.') +
+      (grade === 5 ? '' : ui('属七和弦琶音在结尾解决到主音。', ' Resolve dominant sevenths to the tonic at the end.')) + '</li>' +
+      '<li>' + ui('考官通常每类至少问一项，同类先大调后小调。分手项目会指定左手或右手。',
+        'Examiners usually ask for at least one exercise of each type, with majors before minors. For hands separately they specify left or right.') +
+      (grade === 5 ? '' : ui('连奏和断奏都要求准备的项目，考官会指定奏法。',
+        ' When both legato and staccato are required, the examiner specifies which to play.')) + '</li></ul>';
     $('scope-marking').innerHTML =
-      '<h2>评分标准</h2>' +
-      '<p class="note">音阶与琶音满分 21 分，占总分 150 分的 14%。总成绩 100 分及格，120 分良好，130 分优秀，单项不要求都及格。考官从音准、节奏、音色、乐句和整体表现几方面综合给分。</p>' +
+      '<h2>' + ui('评分标准', 'Marking criteria') + '</h2>' +
+      '<p class="note">' + ui('音阶与琶音满分 21 分，占总分 150 分的 14％。总成绩 100 分及格，120 分良好，130 分优秀，单项不要求都及格。考官从音准、节奏、音色、乐句和整体表现几方面综合给分。',
+        'Scales and arpeggios carry 21 of the 150 exam marks. The total across all sections determines the result. A pass starts at 100 marks, merit at 120 and distinction at 130. Examiners consider pitch, rhythm, tone, phrasing and the performance as a whole.') + '</p>' +
       '<dl class="meta-grid">' +
-      '<dt>优秀 19 到 21</dt><dd>音高非常准确，流畅有节奏，有音乐表现，从容自信</dd>' +
-      '<dt>良好 17 到 18</dt><dd>音高大体准确，大致流畅，音色大致均匀，稳妥</dd>' +
-      '<dt>及格 14 到 16</dt><dd>虽有错误但大体正确，基本保持连贯，音色大体可靠，比较谨慎</dd>' +
-      '<dt>不及格 11 到 13</dt><dd>错音较多，不连贯或有项目没弹完，音色不稳，犹豫</dd>' +
-      '</dl>' +
-      '<p class="note">摘自大纲的分数分配和评分标准（第 57 和 60 页）。</p>';
+      '<dt>' + ui('优秀 19 到 21', 'Distinction (19 to 21)') + '</dt><dd>' + ui('音高非常准确，流畅有节奏，有音乐表现，从容自信', 'Accurate notes, rhythmic fluency and confident musical shaping.') + '</dd>' +
+      '<dt>' + ui('良好 17 到 18', 'Merit (17 to 18)') + '</dt><dd>' + ui('音高大体准确，大致流畅，音色大致均匀，稳妥', 'Mostly accurate notes, a generally fluent pace and even tone.') + '</dd>' +
+      '<dt>' + ui('及格 14 到 16', 'Pass (14 to 16)') + '</dt><dd>' + ui('虽有错误但大体正确，基本保持连贯，音色大体可靠，比较谨慎', 'Largely correct notes with some slips. The playing generally keeps going, with mostly reliable tone.') + '</dd>' +
+      '<dt>' + ui('不及格 11 到 13', 'Below pass (11 to 13)') + '</dt><dd>' + ui('错音较多，不连贯或有项目没弹完，音色不稳，犹豫', 'Frequent errors, hesitations, uneven tone or incomplete exercises.') + '</dd></dl>' +
+      '<p class="note">' + ui('摘自大纲的分数分配和评分标准（第 57 和 60 页）。', 'See the syllabus mark allocation and criteria on pages 57 and 60.') + '</p>';
     var speedNames = {
-      scale: '音阶',
-      arpeggio: '琶音与七和弦',
-      apart: grade === 7 ? '双手相隔三度的音阶' : '双手相隔六度的音阶',
-      legatoThirds: '单手双音三度连奏',
-      staccatoDoubles: grade === 7 ? '单手双音三度断奏' : '单手双音六度断奏'
+      scale: ui('音阶', 'Scales'),
+      arpeggio: ui('琶音与七和弦', 'Arpeggios and sevenths'),
+      apart: grade === 7 ? ui('双手相隔三度的音阶', 'Scales a third apart') : ui('双手相隔六度的音阶', 'Scales a sixth apart'),
+      legatoThirds: ui('单手双音三度连奏', 'Legato scales in thirds'),
+      staccatoDoubles: grade === 7 ? ui('单手双音三度断奏', 'Staccato scales in thirds') : ui('单手双音六度断奏', 'Staccato scales in sixths')
     };
     $('scope-speed').innerHTML =
-      '<h2>速度参考</h2><dl class="meta-grid">' +
+      '<h2>' + ui('速度参考', 'Guide tempos') + '</h2><dl class="meta-grid">' +
       Object.keys(S.SPEED).map(function (group) {
-        return '<dt>' + speedNames[group] + '</dt><dd>二分音符 ＝ ' + S.SPEED[group].minim + '</dd>';
+        return '<dt>' + speedNames[group] + '</dt><dd>' + ui('二分音符 ＝ ', 'Minim = ') + S.SPEED[group].minim + '</dd>';
       }).join('') + '</dl>' +
-      '<p class="note">每拍四个八分音符。示范和节拍器默认使用大纲参考速度，可以在设置里放慢。</p>';
+      '<p class="note">' + ui('每拍四个八分音符。示范和节拍器默认使用大纲参考速度，可以在设置里放慢。',
+        'Play four quavers per minim beat. Examples and the metronome use the syllabus guide tempos. You can slow them down in Settings.') + '</p>';
     $('scope-source').innerHTML =
-      '<h2>来源与说明</h2>' +
-      '<p class="note">两版 ABRSM 钢琴现场考试大纲的' + GRADE_NAMES[grade] + '音阶与琶音要求相同，见印刷页第 ' + page + ' 页。演奏规则和参考速度见 2025 与 2026 年版第 13 至 14 页，或 2027 与 2028 年版第 12 至 14 页。</p>' +
-      '<p class="note"><a href="https://www.abrsm.org/sites/default/files/2024-06/Piano%202025%20%26%202026%20Prac%20syllabus%2020240524_access.pdf#page=' + (page + 1) + '" target="_blank" rel="noopener">2025 与 2026 年官方大纲</a>　' +
-      '<a href="https://www.abrsm.org/sites/default/files/2026-06/Piano%20Practical%20Grades%20Qualification%20Specification%202027%20%26%202028.pdf#page=' + (page + 1) + '" target="_blank" rel="noopener">2027 与 2028 年官方大纲</a></p>';
+      '<h2>' + ui('来源与说明', 'Syllabus sources') + '</h2>' +
+      '<p class="note">' + ui('两版 ABRSM 钢琴现场考试大纲的' + gradeName() + '音阶与琶音要求相同，见印刷页第 ' + page + ' 页。演奏规则和参考速度见 2025 与 2026 年版第 13 至 14 页，或 2027 与 2028 年版第 12 至 14 页。',
+        'Both ABRSM Piano Practical Grades syllabuses give the same ' + gradeName() + ' scale and arpeggio requirements on printed page ' + page + '. For general requirements and guide tempos, see pages 13 to 14 of the 2025 and 2026 syllabus or pages 12 to 14 of the 2027 and 2028 syllabus.') + '</p>' +
+      '<p class="note"><a href="https://www.abrsm.org/sites/default/files/2024-06/Piano%202025%20%26%202026%20Prac%20syllabus%2020240524_access.pdf#page=' + (page + 1) + '" target="_blank" rel="noopener">' + ui('2025 与 2026 年官方大纲', '2025 and 2026 syllabus') + '</a>　' +
+      '<a href="https://www.abrsm.org/sites/default/files/2026-06/Piano%20Practical%20Grades%20Qualification%20Specification%202027%20%26%202028.pdf#page=' + (page + 1) + '" target="_blank" rel="noopener">' + ui('2027 与 2028 年官方大纲', '2027 and 2028 syllabus') + '</a></p>';
   }
 
   function bindScope() {
@@ -808,17 +887,19 @@
     var want = st.lang === 'zh' ? 'zh' : 'en';
     var list = Voice.voices(want);
     var current = want === 'zh' ? st.voiceZh : st.voiceEn;
-    var html = '<option value="">自动选择' + (want === 'en' ? '（优先英式英语）' : '') + '</option>';
+    var automatic = want === 'en' ? ui('自动选择（优先英式英语）', 'Automatic (prefer British English)') : ui('自动选择', 'Automatic');
+    var html = '<option value="">' + automatic + '</option>';
     list.forEach(function (v) {
       html += '<option value="' + escapeHtml(v.voiceURI) + '">' + escapeHtml(v.name + ' (' + v.lang + ')') + '</option>';
     });
     sel.innerHTML = html;
     sel.value = list.some(function (v) { return v.voiceURI === current; }) ? current : '';
     $('voice-hint').textContent = !Voice.supported
-      ? '这个浏览器不支持语音朗读。'
+      ? ui('这个浏览器不支持语音朗读。', 'This browser does not support spoken prompts.')
       : list.length
-        ? (want === 'en' ? '考官说英文，默认优先英式英语声音。' : '中文提示适合刚开始熟悉题目时用。')
-        : '没有找到' + (want === 'en' ? '英文' : '中文') + '声音，会用系统默认声音。';
+        ? (want === 'en' ? ui('考官说英文，默认优先英式英语声音。', 'English prompts use a British voice when available.') : ui('中文提示适合刚开始熟悉题目时用。', 'The examiner will give prompts in Chinese.'))
+        : ui('没有找到' + (want === 'en' ? '英文' : '中文') + '声音，会用系统默认声音。',
+          'No ' + (want === 'en' ? 'English' : 'Chinese') + ' voice was found. Your device will use its default voice.');
   }
 
   function syncSettings() {
@@ -831,6 +912,7 @@
     $('set-autospeak').checked = !!st.autoSpeak;
     $('set-blind').checked = !!st.blind;
     $('set-shownotes').checked = !!st.showNotes;
+    $('reset-progress').textContent = resetArmed ? ui('确定要清空吗？再点一次', 'Tap again to confirm') : ui('清空本级练习记录', 'Clear progress for this grade');
     fillVoices();
   }
 
@@ -857,11 +939,26 @@
     dlg.addEventListener('close', function () {
       clearTimeout(resetArmed);
       resetArmed = null;
-      $('reset-progress').textContent = '清空本级练习记录';
       stopAllSound();
       renderCard();
+      if (!$('exam-run').hidden) refreshExamLanguage();
     });
 
+    $('ui-language').addEventListener('change', function () {
+      settings.uiLanguage = this.value;
+      saveSettings();
+      stopAllSound();
+      clearTimeout(toastTimer);
+      $('toast').textContent = '';
+      $('toast').classList.remove('show');
+      window.InterfaceText.apply(settings.uiLanguage);
+      renderTypeChips();
+      renderCard();
+      renderScopeStatic();
+      renderScope();
+      refreshExamLanguage();
+      syncSettings();
+    });
     $('set-lang').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-lang]');
       if (!b) return;
@@ -916,10 +1013,10 @@
     $('reset-progress').addEventListener('click', function () {
       var b = this;
       if (!resetArmed) {
-        b.textContent = '确定要清空吗？再点一次';
+        b.textContent = ui('确定要清空吗？再点一次', 'Tap again to confirm');
         resetArmed = setTimeout(function () {
           resetArmed = null;
-          b.textContent = '清空本级练习记录';
+          b.textContent = ui('清空本级练习记录', 'Clear progress for this grade');
         }, 4000);
         return;
       }
@@ -929,10 +1026,10 @@
       practice.log = [];
       practice.recent = [];
       savePractice();
-      b.textContent = '清空本级练习记录';
+      b.textContent = ui('清空本级练习记录', 'Clear progress for this grade');
       renderStats();
       renderScope();
-      toast(GRADE_NAMES[settings.grade] + '练习记录已清空');
+      toast(ui(gradeName() + '练习记录已清空', 'Progress cleared for ' + gradeName()));
     });
     Voice.onVoicesChanged(function () {
       if (dlg.open) fillVoices();
@@ -1002,9 +1099,6 @@
     $('grade-select').value = String(settings.grade);
     renderTypeChips();
     $('type-chips').scrollLeft = 0;
-    $('exam-size').innerHTML = [0, 4, 8].map(function (extra) {
-      return '<button type="button" data-extra="' + extra + '">' + (S.TYPES.length + extra) + ' 项</button>';
-    }).join('');
     renderScopeStatic();
     renderScope();
     syncExamSetup();
@@ -1016,7 +1110,9 @@
     if (grade === settings.grade) return;
     var inExam = !$('exam-run').hidden;
     var unsaved = !$('exam-done').hidden && exam.ratings.some(function (r, i) { return r !== exam.saved[i]; });
-    if ((inExam || unsaved) && !window.confirm(inExam ? '切换级别会结束本次模拟考试，确定切换吗？' : '本次考试还有未保存的自评，确定切换级别吗？')) {
+    var question = inExam ? ui('切换级别会结束本次模拟考试，确定切换吗？', 'Changing grade will end this mock exam. Change grade?')
+      : ui('本次考试还有未保存的自评，确定切换级别吗？', 'Your ratings have not been saved. Change grade?');
+    if ((inExam || unsaved) && !window.confirm(question)) {
       this.value = String(settings.grade);
       return;
     }
@@ -1031,6 +1127,7 @@
   }
 
   function start() {
+    window.InterfaceText.apply(settings.uiLanguage);
     $('grade-select').addEventListener('change', changeGrade);
     bindDraw();
     bindExam();

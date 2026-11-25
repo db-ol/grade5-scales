@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>钢琴音阶抽考</title>
-<meta name="description" content="按 ABRSM 钢琴五级、七级和八级大纲练习音阶与琶音，支持考官语音、示范和模拟考试。">
+<meta name="description" data-en-content="Practise ABRSM piano scales and arpeggios for Grades 5, 7 and 8 with spoken prompts, demonstrations and mock exams." content="按 ABRSM 钢琴五级、七级和八级大纲练习音阶与琶音，支持考官语音、示范和模拟考试。">
 <meta name="theme-color" content="#ecece7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0e0e11" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="音阶抽考">
+<meta name="apple-mobile-web-app-title" data-en-content="Piano scales" content="音阶抽考">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -21,15 +21,15 @@
 <header class="appbar">
   <div class="wrap">
     <div class="brand">
-      <h1>钢琴音阶抽考</h1>
-      <small>ABRSM 非官方练习</small>
+      <h1 data-en="Piano scales">钢琴音阶抽考</h1>
+      <small data-en="Unofficial ABRSM practice">ABRSM 非官方练习</small>
     </div>
-    <select id="grade-select" aria-label="考试级别">
-      <option value="5" lang="en">Grade 5</option>
-      <option value="7" lang="en">Grade 7</option>
-      <option value="8" lang="en">Grade 8</option>
+    <select id="grade-select" aria-label="考试级别" data-en-label="Exam grade">
+      <option value="5" data-en="Grade 5">五级</option>
+      <option value="7" data-en="Grade 7">七级</option>
+      <option value="8" data-en="Grade 8">八级</option>
     </select>
-    <button class="icon-btn" id="open-settings" type="button" aria-label="设置">
+    <button class="icon-btn" id="open-settings" type="button" aria-label="设置" data-en-label="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
     </button>
   </div>
@@ -38,12 +38,12 @@
 <main>
   <!-- Draw: one random card at a time -->
   <section class="view wrap" id="view-draw" role="tabpanel" aria-labelledby="tab-draw">
-    <div class="chips" id="type-chips" role="group" aria-label="选择题型"></div>
+    <div class="chips" id="type-chips" role="group" aria-label="选择题型" data-en-label="Exercise types"></div>
 
     <div class="instrument" id="instrument">
       <div class="fallboard" id="fallboard">
         <div class="eyebrow"><span id="card-type" lang="en">Scale</span></div>
-        <button class="skip-btn" id="btn-skip" type="button">换一题
+        <button class="skip-btn" id="btn-skip" type="button"><span data-en="Skip">换一题</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
         <h2 class="card-title" id="card-title" lang="en">F<span class="acc">♯</span> major</h2>
@@ -52,13 +52,13 @@
         <div class="rule-gold"></div>
         <div class="card-speech" id="card-speech">“Scale of F sharp major, hands together.”</div>
         <button class="veil" id="veil" type="button" hidden>
-          <span class="veil-mark" lang="en">Listen…</span>
-          <span class="veil-hint">听考官说的是哪一项，弹完再点这里看题</span>
+          <span class="veil-mark" data-en="Listen…">听题…</span>
+          <span class="veil-hint" data-en="Listen to the prompt. Play from memory, then tap to reveal the exercise.">听考官说的是哪一项，弹完再点这里看题</span>
         </button>
         <div class="card-actions">
           <button class="pill-btn" id="btn-say" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
-            <span>重听</span>
+            <span data-en="Replay prompt">重听</span>
           </button>
           <button class="pill-btn" id="btn-demo" type="button" data-on="false">
             <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/></svg>
@@ -75,9 +75,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 3.5h5l4 17h-13z"/><path d="M12 16l4.5-8.5"/><path d="M7.5 16h9"/></svg>
           <span id="metro-label">节拍器</span><span class="tool-sub" id="metro-speed"></span>
         </button>
-        <div class="seg seg-2 seg-sm seg-dark" id="minor-form" role="group" aria-label="示范用的小调形式" hidden>
-          <button type="button" data-form="harmonic">和声小调</button>
-          <button type="button" data-form="melodic">旋律小调</button>
+        <div class="seg seg-2 seg-sm seg-dark" id="minor-form" role="group" aria-label="示范用的小调形式" data-en-label="Minor scale form for the demo" hidden>
+          <button type="button" data-form="harmonic" data-en="Harmonic minor">和声小调</button>
+          <button type="button" data-form="melodic" data-en="Melodic minor">旋律小调</button>
         </div>
       </div>
     </div>
@@ -85,10 +85,10 @@
     <p class="note" id="card-reminder" hidden></p>
 
     <div class="rate-dock">
-      <div class="rate" id="rate" role="group" aria-label="弹完后给自己打分">
-        <button class="btn" type="button" data-rate="0">没弹好<small>以后多抽</small></button>
-        <button class="btn" type="button" data-rate="1">还可以<small>有小问题</small></button>
-        <button class="btn" type="button" data-rate="2">很熟练<small>以后少抽</small></button>
+      <div class="rate" id="rate" role="group" aria-label="弹完后给自己打分" data-en-label="Rate your playing">
+        <button class="btn" type="button" data-rate="0"><span data-en="Needs work">没弹好</span><small data-en="More often">以后多抽</small></button>
+        <button class="btn" type="button" data-rate="1"><span data-en="Getting there">还可以</span><small data-en="A few slips">有小问题</small></button>
+        <button class="btn" type="button" data-rate="2"><span data-en="Confident">很熟练</span><small data-en="Less often">以后少抽</small></button>
       </div>
     </div>
     <div class="stats" id="stats"></div>
@@ -97,25 +97,25 @@
   <!-- Mock exam -->
   <section class="view wrap" id="view-exam" role="tabpanel" aria-labelledby="tab-exam" hidden>
     <div class="panel" id="exam-setup">
-      <h2>模拟考试</h2>
-      <p class="note">每种题型至少抽一项，同类里先大调后小调。按考官的语音提示，逐项背谱弹奏。</p>
+      <h2 data-en="Mock exam">模拟考试</h2>
+      <p class="note" data-en="Play each exercise from memory when prompted. The exam covers every exercise type, with major keys before minors in each group.">每种题型至少抽一项，同类里先大调后小调。按考官的语音提示，逐项背谱弹奏。</p>
       <div class="field">
-        <span class="label">题量</span>
-        <div class="seg" id="exam-size" role="group" aria-label="题量"></div>
+        <span class="label" data-en="Number of exercises">题量</span>
+        <div class="seg" id="exam-size" role="group" aria-label="题量" data-en-label="Number of exercises"></div>
       </div>
       <div class="field">
-        <span class="label">顺序</span>
-        <div class="seg seg-2" id="exam-order" role="group" aria-label="顺序">
-          <button type="button" data-order="syllabus">按大纲顺序</button>
-          <button type="button" data-order="shuffle">题型打乱</button>
+        <span class="label" data-en="Order">顺序</span>
+        <div class="seg seg-2" id="exam-order" role="group" aria-label="顺序" data-en-label="Order">
+          <button type="button" data-order="syllabus" data-en="Syllabus order">按大纲顺序</button>
+          <button type="button" data-order="shuffle" data-en="Shuffle types">题型打乱</button>
         </div>
       </div>
-      <label class="switch" for="exam-blind">只听不看（像真实考试）<input type="checkbox" id="exam-blind"></label>
-      <button class="btn primary wide" id="exam-start" type="button">开始模拟考试</button>
+      <label class="switch" for="exam-blind"><span data-en="Hide the exercise until I tap">只听不看（像真实考试）</span><input type="checkbox" id="exam-blind"></label>
+      <button class="btn primary wide" id="exam-start" type="button" data-en="Start mock exam">开始模拟考试</button>
     </div>
 
     <div class="exam-stage" id="exam-run" hidden>
-      <div class="exam-progress"><span>第 <b id="exam-index">1</b> / <span id="exam-total">10</span> 项</span><span id="exam-clock">0:00</span></div>
+      <div class="exam-progress"><span><span data-en="Exercise">第</span> <b id="exam-index">1</b> / <span id="exam-total">10</span><span data-en=""> 项</span></span><span id="exam-clock">0:00</span></div>
       <div class="progress" aria-hidden="true"><span id="exam-bar" style="width:0%"></span></div>
       <div class="instrument">
         <div class="fallboard" id="exam-fallboard">
@@ -126,8 +126,8 @@
           <div class="rule-gold"></div>
           <div class="card-speech" id="exam-speech"></div>
           <button class="veil" id="exam-veil" type="button" hidden>
-            <span class="veil-mark" lang="en">Listen…</span>
-            <span class="veil-hint">认真听，然后背谱弹。需要时点这里看题</span>
+            <span class="veil-mark" data-en="Listen…">听题…</span>
+            <span class="veil-hint" data-en="Listen and play from memory. Tap to reveal the exercise if needed.">认真听，然后背谱弹。需要时点这里看题</span>
           </button>
         </div>
         <div class="felt"></div>
@@ -136,24 +136,24 @@
       <div class="controls controls-2">
         <button class="btn" id="exam-say" type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>
-          <span>再说一遍</span>
+          <span data-en="Replay prompt">再说一遍</span>
         </button>
         <button class="btn primary" id="exam-next" type="button">
           <span id="exam-next-label">下一项</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </button>
       </div>
-      <button class="skip-link" id="exam-quit" type="button">结束本次模拟</button>
+      <button class="skip-link" id="exam-quit" type="button" data-en="End mock exam">结束本次模拟</button>
     </div>
 
     <div class="exam-stage" id="exam-done" hidden>
       <div class="panel">
-        <h2>考完了，逐项自评</h2>
+        <h2 data-en="Rate your playing">考完了，逐项自评</h2>
         <p class="note" id="exam-done-meta"></p>
       </div>
       <ul class="summary-list" id="exam-summary"></ul>
       <button class="btn primary wide" id="exam-save" type="button">保存自评</button>
-      <button class="btn wide" id="exam-again" type="button">再考一次</button>
+      <button class="btn wide" id="exam-again" type="button" data-en="Start another exam">再考一次</button>
     </div>
   </section>
 
@@ -168,19 +168,19 @@
   </section>
 </main>
 
-<nav class="tabbar" aria-label="主菜单">
+<nav class="tabbar" aria-label="主菜单" data-en-label="Main navigation">
   <div class="tabs" role="tablist">
     <button class="tab" id="tab-draw" type="button" role="tab" aria-selected="true" aria-controls="view-draw" data-view="draw">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="12" height="15" rx="2"/><path d="M8 3.5h9.5a2 2 0 0 1 2 2V18"/></svg>
-      抽题
+      <span data-en="Practice">抽题</span>
     </button>
     <button class="tab" id="tab-exam" type="button" role="tab" aria-selected="false" aria-controls="view-exam" data-view="exam">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="13.5" r="7"/><path d="M12 13.5V10M10 2.5h4M12 2.5v4M18.5 6.5l1.5-1.5"/></svg>
-      模拟考试
+      <span data-en="Mock exam">模拟考试</span>
     </button>
     <button class="tab" id="tab-scope" type="button" role="tab" aria-selected="false" aria-controls="view-scope" data-view="scope">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>
-      考试范围
+      <span data-en="Syllabus">考试范围</span>
     </button>
   </div>
 </nav>
@@ -188,53 +188,60 @@
 <dialog class="sheet" id="settings" aria-labelledby="settings-title">
   <div class="sheet-inner">
     <div class="sheet-head">
-      <h2 id="settings-title">设置</h2>
-      <button class="icon-btn" id="close-settings" type="button" aria-label="关闭">
+      <h2 id="settings-title" data-en="Settings">设置</h2>
+      <button class="icon-btn" id="close-settings" type="button" aria-label="关闭" data-en-label="Close settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
 
     <div class="field">
-      <span class="label">出题语音</span>
-      <div class="seg seg-2" id="set-lang" role="group" aria-label="出题语音">
-        <button type="button" data-lang="en">英文（模拟考官）</button>
-        <button type="button" data-lang="zh">中文</button>
+      <label for="ui-language"><span data-en="Interface language">界面语言（Language）</span></label>
+      <select id="ui-language">
+        <option value="zh" lang="zh-CN">中文</option>
+        <option value="en" lang="en">English</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="label" data-en="Spoken prompt language">出题语音</span>
+      <div class="seg seg-2" id="set-lang" role="group" aria-label="出题语音" data-en-label="Spoken prompt language">
+        <button type="button" data-lang="en" data-en="English (examiner)">英文（模拟考官）</button>
+        <button type="button" data-lang="zh" data-en="Chinese">中文</button>
       </div>
     </div>
     <div class="field">
-      <label for="set-voice">朗读声音</label>
+      <label for="set-voice" data-en="Voice">朗读声音</label>
       <select id="set-voice"></select>
       <span class="hint" id="voice-hint">默认优先使用英式英语声音。</span>
     </div>
     <div class="field">
-      <label for="set-rate">语速 <span id="rate-value"></span></label>
+      <label for="set-rate"><span data-en="Speech rate">语速</span> <span id="rate-value"></span></label>
       <input type="range" id="set-rate" min="0.7" max="1.2" step="0.05">
     </div>
     <div class="field">
-      <span class="label">考官说法</span>
-      <div class="seg seg-2" id="set-phrasing" role="group" aria-label="考官说法">
-        <button type="button" data-phrasing="plain">固定简洁</button>
-        <button type="button" data-phrasing="varied">多种说法</button>
+      <span class="label" data-en="Examiner phrasing">考官说法</span>
+      <div class="seg seg-2" id="set-phrasing" role="group" aria-label="考官说法" data-en-label="Examiner phrasing">
+        <button type="button" data-phrasing="plain" data-en="Standard">固定简洁</button>
+        <button type="button" data-phrasing="varied" data-en="Varied">多种说法</button>
       </div>
     </div>
-    <label class="switch" for="set-autospeak">抽到新题自动朗读<input type="checkbox" id="set-autospeak"></label>
-    <label class="switch" for="set-blind">抽题时只听不看<input type="checkbox" id="set-blind"></label>
-    <label class="switch" for="set-shownotes">直接显示音符（不用点开）<input type="checkbox" id="set-shownotes"></label>
+    <label class="switch" for="set-autospeak"><span data-en="Read each new exercise aloud">抽到新题自动朗读</span><input type="checkbox" id="set-autospeak"></label>
+    <label class="switch" for="set-blind"><span data-en="Hide practice exercises until I tap">抽题时只听不看</span><input type="checkbox" id="set-blind"></label>
+    <label class="switch" for="set-shownotes"><span data-en="Show notes automatically">直接显示音符（不用点开）</span><input type="checkbox" id="set-shownotes"></label>
     <div class="field">
-      <span class="label">示范速度</span>
-      <div class="seg" id="set-speed" role="group" aria-label="示范速度">
-        <button type="button" data-speed="0.6">慢速 60%</button>
-        <button type="button" data-speed="0.8">中速 80%</button>
-        <button type="button" data-speed="1">参考速度</button>
+      <span class="label" data-en="Demo speed">示范速度</span>
+      <div class="seg" id="set-speed" role="group" aria-label="示范速度" data-en-label="Demo speed">
+        <button type="button" data-speed="0.6" data-en="Slow 60%">慢速 60%</button>
+        <button type="button" data-speed="0.8" data-en="Moderate 80%">中速 80%</button>
+        <button type="button" data-speed="1" data-en="Guide speed">参考速度</button>
       </div>
-      <span class="hint">示范和节拍器按当前级别和题型的参考速度播放，每拍四个八分音符。</span>
+      <span class="hint" data-en="Demos and the metronome use the guide tempo for each exercise, with four notes per beat.">示范和节拍器按当前级别和题型的参考速度播放，每拍四个八分音符。</span>
     </div>
     <div class="field">
-      <span class="label">练习记录</span>
+      <span class="label" data-en="Practice history">练习记录</span>
       <button class="btn" id="reset-progress" type="button">清空本级练习记录</button>
     </div>
-    <p class="note">示范声音由网页内置的合成器生成。朗读用的是手机或电脑自带的语音，有些声音（比如电脑上 Chrome 的 Google 声音）需要联网。第一次打开网页需要联网，加到主屏幕以后可以离线用。iPhone 听不到声音时，检查音量和静音开关。</p>
-    <p class="note">非 ABRSM 官方产品。考试要求摘自 ABRSM 钢琴考级大纲，请以官方大纲为准。</p>
+    <p class="note" data-en="Demos use the site’s synthesizer. Spoken prompts use your device’s voices, some of which need an internet connection. Open the site online first, then add it to your home screen for offline practice. On iPhone, check the volume and silent mode if you hear no sound.">示范声音由网页内置的合成器生成。朗读用的是手机或电脑自带的语音，有些声音（比如电脑上 Chrome 的 Google 声音）需要联网。第一次打开网页需要联网，加到主屏幕以后可以离线用。iPhone 听不到声音时，检查音量和静音开关。</p>
+    <p class="note" data-en="This is an unofficial practice tool. For exam requirements, consult the official ABRSM piano syllabus.">非 ABRSM 官方产品。考试要求摘自 ABRSM 钢琴考级大纲，请以官方大纲为准。</p>
   </div>
 </dialog>
 
@@ -246,6 +253,7 @@
 <script src="js/speech.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/keyboard.js"></script>
+<script src="js/interface.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

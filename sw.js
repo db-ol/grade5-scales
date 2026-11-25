@@ -4,7 +4,7 @@
  * Only this app's own caches are touched, because other GitHub Pages projects share the origin.
  */
 var PREFIX = 'g5-scales-';
-var VERSION = PREFIX + 'v5';
+var VERSION = PREFIX + 'v6';
 var FILES = [
   './',
   'index.html',
@@ -15,6 +15,7 @@ var FILES = [
   'js/speech.js',
   'js/audio.js',
   'js/keyboard.js',
+  'js/interface.js',
   'js/app.js',
   'fonts/bodoni-moda-subset.woff2',
   'fonts/bodoni-moda-italic-subset.woff2',

@@ -262,15 +262,25 @@
       ART_ZH[card.articulation]].join('，');
   }
 
-  function reminderZh(card) {
-    if (card.minorChoice) return '和声小调或旋律小调由你自选，考官不会指定。';
-    if (card.type === 'contrary' && card.quality === 'harmonic') return '这一项指定为和声小调。';
-    if (card.type === 'chromatic') return '右手上行、左手下行，两个八度后再一起回到起点。';
-    if (card.type === 'thirdsApart' || card.type === 'legatoThirds' || card.type === 'staccatoThirds') return '起始三度的低音是主音。';
-    if (card.type === 'sixthsApart' || card.type === 'staccatoSixths') return '起始六度的高音是主音。';
-    if (card.inversion === 1) return '从和弦的三音开始。';
-    if (card.inversion === 2) return '从和弦的五音开始。';
-    if (card.type === 'dim7' && grade === 5) return 'B、D、F、降A，原位上行两个八度再下行。';
+  function reminder(card, language) {
+    var en = language === 'en';
+    if (card.minorChoice) return en ? 'You can choose harmonic or melodic minor.' : '和声小调或旋律小调由你自选，考官不会指定。';
+    if (card.type === 'contrary' && card.quality === 'harmonic') return en ? 'Use the harmonic minor form.' : '这一项指定为和声小调。';
+    if (card.type === 'chromatic') {
+      return en ? 'Play up with the right hand and down with the left. After two octaves, return to the starting notes.'
+        : '右手上行、左手下行，两个八度后再一起回到起点。';
+    }
+    if (card.type === 'thirdsApart' || card.type === 'legatoThirds' || card.type === 'staccatoThirds') {
+      return en ? 'Start with the tonic as the lower note of the third.' : '起始三度的低音是主音。';
+    }
+    if (card.type === 'sixthsApart' || card.type === 'staccatoSixths') {
+      return en ? 'Start with the tonic as the upper note of the sixth.' : '起始六度的高音是主音。';
+    }
+    if (card.inversion === 1) return en ? 'Start on the third of the chord.' : '从和弦的三音开始。';
+    if (card.inversion === 2) return en ? 'Start on the fifth of the chord.' : '从和弦的五音开始。';
+    if (card.type === 'dim7' && grade === 5) {
+      return en ? 'Use B, D, F and A flat. Ascend two octaves in root position, then descend.' : 'B、D、F、降A，原位上行两个八度再下行。';
+    }
     return '';
   }
 
@@ -569,7 +579,8 @@
     titleText: titleText,
     detailEn: detailEn,
     detailZh: detailZh,
-    reminderZh: reminderZh,
+    reminder: reminder,
+    reminderZh: function (card) { return reminder(card, 'zh'); },
     speechEn: speechEn,
     speechZh: speechZh,
     modeFor: modeFor,
