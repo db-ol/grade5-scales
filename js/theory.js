@@ -112,9 +112,11 @@
     var size = opts.semis.length;
     var spelled = opts.semis.map(function (semi, i) { return spellAbove(root, opts.letters[i], semi); });
     var count = size * opts.octaves;
+    var start = opts.inversion || 0;
     var out = [];
 
     function push(i) {
+      i += start;
       var j = mod(i, size);
       var oct = Math.floor(i / size);
       out.push(noteEvent(opts.rootMidi + 12 * oct + opts.semis[j], spelled[j]));
@@ -126,12 +128,12 @@
     return out;
   }
 
-  // Root position major or minor triad through `octaves` octaves and back.
   function arpeggioLine(opts) {
     return chordLine({
       root: opts.tonic,
       rootMidi: opts.tonicMidi,
       octaves: opts.octaves,
+      inversion: opts.inversion,
       letters: [0, 2, 4],
       semis: opts.quality === 'minor' ? [0, 3, 7] : [0, 4, 7]
     });
@@ -147,6 +149,30 @@
     });
   }
 
+  function dominantSeventhLine(opts) {
+    var tonic = parseNote(opts.tonic);
+    var line = chordLine({
+      root: noteName(spellAbove(tonic, 4, 7), 'ascii'),
+      rootMidi: opts.tonicMidi + 7,
+      octaves: opts.octaves,
+      letters: [0, 2, 4, 6],
+      semis: [0, 4, 7, 10]
+    });
+    // At the end of the descent the leading note rises to the tonic.
+    line[line.length - 1] = noteEvent(opts.tonicMidi + 12, tonic);
+    return line;
+  }
+
+  function wholeToneLine(opts) {
+    return chordLine({
+      root: opts.tonic,
+      rootMidi: opts.tonicMidi,
+      octaves: opts.octaves,
+      letters: opts.tonic === 'Eb' ? [0, 1, 2, 3, 4, 6] : [0, 1, 2, 3, 4, 5],
+      semis: [0, 2, 4, 6, 8, 10]
+    });
+  }
+
   var SHARP_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
   var FLAT_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
@@ -159,7 +185,7 @@
 
     function push(k, goingUp) {
       var midi = opts.startMidi + dir * k;
-      var name = k === 0 && opts.startName ? opts.startName : (goingUp ? SHARP_NAMES : FLAT_NAMES)[mod(midi, 12)];
+      var name = k % 12 === 0 && opts.startName ? opts.startName : (goingUp ? SHARP_NAMES : FLAT_NAMES)[mod(midi, 12)];
       out.push(noteEvent(midi, parseNote(name)));
     }
 
@@ -167,6 +193,17 @@
     for (k = 0; k <= steps; k++) push(k, dir > 0);
     for (k = steps - 1; k >= 0; k--) push(k, dir < 0);
     return out;
+  }
+
+  function chromaticSixths(opts) {
+    var rh = chromaticLine(opts);
+    var lh = rh.map(function (upper) {
+      // Spell each pair as a sixth in both directions, including A flat below F.
+      if (upper.pc !== mod(opts.startMidi, 12)) upper.name = SHARP_NAMES[upper.pc];
+      var lower = spellAbove(parseNote(upper.name), -5, -9);
+      return noteEvent(upper.midi - 9, lower);
+    });
+    return { rh: rh, lh: lh };
   }
 
   return {
@@ -183,6 +220,9 @@
     chordLine: chordLine,
     arpeggioLine: arpeggioLine,
     diminishedSeventhLine: diminishedSeventhLine,
-    chromaticLine: chromaticLine
+    dominantSeventhLine: dominantSeventhLine,
+    wholeToneLine: wholeToneLine,
+    chromaticLine: chromaticLine,
+    chromaticSixths: chromaticSixths
   };
 });

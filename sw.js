@@ -4,12 +4,13 @@
  * Only this app's own caches are touched, because other GitHub Pages projects share the origin.
  */
 var PREFIX = 'g5-scales-';
-var VERSION = PREFIX + 'v4';
+var VERSION = PREFIX + 'v5';
 var FILES = [
   './',
   'index.html',
   'css/style.css',
   'js/theory.js',
+  'js/grades.js',
   'js/syllabus.js',
   'js/speech.js',
   'js/audio.js',

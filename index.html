@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>五级音阶抽考</title>
-<meta name="description" content="ABRSM 钢琴五级音阶与琶音自测卡片，考官英文语音出题，带示范音频和模拟考试。">
+<title>钢琴音阶抽考</title>
+<meta name="description" content="按 ABRSM 钢琴五级、七级和八级大纲练习音阶与琶音，支持考官语音、示范和模拟考试。">
 <meta name="theme-color" content="#ecece7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0e0e11" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">
@@ -21,9 +21,14 @@
 <header class="appbar">
   <div class="wrap">
     <div class="brand">
-      <h1>五级音阶抽考</h1>
-      <small>ABRSM 钢琴五级 · 非官方练习工具</small>
+      <h1>钢琴音阶抽考</h1>
+      <small>ABRSM 非官方练习</small>
     </div>
+    <select id="grade-select" aria-label="考试级别">
+      <option value="5" lang="en">Grade 5</option>
+      <option value="7" lang="en">Grade 7</option>
+      <option value="8" lang="en">Grade 8</option>
+    </select>
     <button class="icon-btn" id="open-settings" type="button" aria-label="设置">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
     </button>
@@ -93,14 +98,10 @@
   <section class="view wrap" id="view-exam" role="tabpanel" aria-labelledby="tab-exam" hidden>
     <div class="panel" id="exam-setup">
       <h2>模拟考试</h2>
-      <p class="note">按大纲写明的出题习惯组卷：考官通常每种题型至少问一项（这里每种都会出），同类里先大调后小调，分手的项目会兼顾左右手。模拟考官用英文逐项点题，全部背谱。</p>
+      <p class="note">每种题型至少抽一项，同类里先大调后小调。按考官的语音提示，逐项背谱弹奏。</p>
       <div class="field">
         <span class="label">题量</span>
-        <div class="seg" id="exam-size" role="group" aria-label="题量">
-          <button type="button" data-size="6">6 项</button>
-          <button type="button" data-size="10">10 项</button>
-          <button type="button" data-size="14">14 项</button>
-        </div>
+        <div class="seg" id="exam-size" role="group" aria-label="题量"></div>
       </div>
       <div class="field">
         <span class="label">顺序</span>
@@ -226,11 +227,11 @@
         <button type="button" data-speed="0.8">中速 80%</button>
         <button type="button" data-speed="1">参考速度</button>
       </div>
-      <span class="hint">参考速度按大纲：音阶 二分音符 = 60，琶音 二分音符 = 44，每拍四个八分音符。节拍器也跟着这个设置走。</span>
+      <span class="hint">示范和节拍器按当前级别和题型的参考速度播放，每拍四个八分音符。</span>
     </div>
     <div class="field">
       <span class="label">练习记录</span>
-      <button class="btn" id="reset-progress" type="button">清空练习记录</button>
+      <button class="btn" id="reset-progress" type="button">清空本级练习记录</button>
     </div>
     <p class="note">示范声音由网页内置的合成器生成。朗读用的是手机或电脑自带的语音，有些声音（比如电脑上 Chrome 的 Google 声音）需要联网。第一次打开网页需要联网，加到主屏幕以后可以离线用。iPhone 听不到声音时，检查音量和静音开关。</p>
     <p class="note">非 ABRSM 官方产品。考试要求摘自 ABRSM 钢琴考级大纲，请以官方大纲为准。</p>
@@ -240,6 +241,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/theory.js"></script>
+<script src="js/grades.js"></script>
 <script src="js/syllabus.js"></script>
 <script src="js/speech.js"></script>
 <script src="js/audio.js"></script>

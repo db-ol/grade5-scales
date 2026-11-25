@@ -1,24 +1,28 @@
-/*
- * ABRSM Piano Grade 5 scales and arpeggios, transcribed from the Piano Practical Grades
- * syllabus (2025 & 2026, page 35). The 2027 & 2028 syllabus prints the same Grade 5 table.
- * Also builds the quiz cards, what the examiner says, and the notes for the demo.
- */
 (function (root, factory) {
   var T = root.Theory || (typeof require === 'function' ? require('./theory.js') : null);
-  var api = factory(T);
+  var pianoGrade = root.PianoGrade || (typeof require === 'function' ? require('./grades.js') : null);
+  var decks = {};
+  function forGrade(grade) {
+    grade = Number(grade);
+    if ([5, 7, 8].indexOf(grade) < 0) throw new RangeError('Unknown piano grade');
+    if (!decks[grade]) {
+      decks[grade] = factory(T, grade, grade === 5 ? null : pianoGrade(grade));
+      decks[grade].forGrade = forGrade;
+    }
+    return decks[grade];
+  }
+  var api = forGrade(5);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Syllabus = api;
-})(typeof self !== 'undefined' ? self : this, function (T) {
+})(typeof self !== 'undefined' ? self : this, function (T, grade, syllabus) {
   'use strict';
 
-  // Guide speeds from the syllabus speed table, Grade 5 column.
-  // "All speeds relate to the rhythmic grouping" of four quavers, so four notes per minim beat.
-  var SPEED = {
+  var SPEED = syllabus ? syllabus.speed : {
     scale: { minim: 60, notesPerBeat: 4 },
     arpeggio: { minim: 44, notesPerBeat: 4 }
   };
 
-  var TYPES = [
+  var TYPES = syllabus ? syllabus.types : [
     {
       id: 'scales',
       en: 'Scales',
@@ -116,7 +120,13 @@
   ];
 
   var TYPE_BY_ID = {};
-  TYPES.forEach(function (t) { TYPE_BY_ID[t.id] = t; });
+  TYPES.forEach(function (t) {
+    if (grade === 5) {
+      t.octaves = 2;
+      t.articulations = [t.id === 'staccato' ? 'staccato' : 'legato'];
+    }
+    TYPE_BY_ID[t.id] = t;
+  });
 
   var HAND_EN = { together: 'hands together', rh: 'right hand', lh: 'left hand' };
   var HAND_ZH = { together: '双手', rh: '右手', lh: '左手' };
@@ -127,14 +137,21 @@
       type.rows.forEach(function (row) {
         row.keys.forEach(function (key) {
           type.hands.forEach(function (hand) {
-            cards.push({
-              id: [type.id, key, row.quality, hand].join(':'),
-              type: type.id,
-              tonic: key,
-              quality: row.quality,
-              hand: hand,
-              minorChoice: !!row.minorChoice,
-              rhStart: row.rhStart || null
+            type.articulations.forEach(function (articulation) {
+              var id = [type.id, key, row.quality, hand].join(':');
+              cards.push({
+                id: grade === 5 ? id : [grade, id, articulation].join(':'),
+                grade: grade,
+                type: type.id,
+                tonic: key,
+                quality: row.quality,
+                hand: hand,
+                octaves: type.octaves,
+                articulation: articulation,
+                inversion: type.inversion || 0,
+                minorChoice: !!row.minorChoice,
+                rhStart: row.rhStart || null
+              });
             });
           });
         });
@@ -165,134 +182,138 @@
     return ({ '-2': '重降', '-1': '降', '0': '', '1': '升', '2': '重升' })[String(n.acc)] + letter;
   }
 
-  var QUALITY_EN = { major: 'major', minor: 'minor', harmonic: 'harmonic minor' };
+  var QUALITY_EN = { major: 'major', minor: 'minor', harmonic: 'harmonic minor', melodic: 'melodic minor' };
+  var ART_ZH = { legato: '连奏', staccato: '断奏' };
+  var INV_EN = ['', 'first inversion', 'second inversion'];
+  var INV_ZH = ['', '第一转位', '第二转位'];
 
   function keyEn(card, style) {
     var tonic = style === 'spoken' ? T.formatName(card.tonic, 'spoken') : T.formatName(card.tonic, 'unicode');
-    return tonic + ' ' + QUALITY_EN[card.quality];
+    return QUALITY_EN[card.quality] ? tonic + ' ' + QUALITY_EN[card.quality] : tonic;
   }
 
   function keyZh(card) {
     if (card.quality === 'major') return noteZh(card.tonic) + '大调';
     if (card.quality === 'harmonic') return noteZh(card.tonic, true) + '和声小调';
-    return noteZh(card.tonic, true) + '小调';
+    if (card.quality === 'melodic') return noteZh(card.tonic, true) + '旋律小调';
+    if (card.quality === 'minor') return noteZh(card.tonic, true) + '小调';
+    return noteZh(card.tonic);
   }
 
   // Large title on the card, as HTML with styled accidentals.
   function titleHtml(card) {
-    if (card.type === 'chromatic') return noteHtml(card.tonic) + ' &amp; ' + noteHtml(card.rhStart);
-    if (card.type === 'dim7') return 'starting on ' + noteHtml(card.tonic);
+    if (card.rhStart) return noteHtml(card.tonic) + ' &amp; ' + noteHtml(card.rhStart);
+    if (card.type === 'dim7' || card.type === 'wholeTone') return 'starting on ' + noteHtml(card.tonic);
+    if (card.type === 'dom7') return 'in ' + noteHtml(card.tonic);
     return noteHtml(card.tonic) + ' ' + QUALITY_EN[card.quality];
   }
 
   // Plain text title for lists and summaries.
   function titleText(card) {
-    if (card.type === 'chromatic') return 'F♯ (LH) & A♯ (RH)';
-    if (card.type === 'dim7') return 'starting on ' + T.formatName(card.tonic, 'unicode');
-    return keyEn(card);
+    var title = keyEn(card);
+    if (card.rhStart) title += ' (LH) & ' + T.formatName(card.rhStart, 'unicode') + ' (RH)';
+    if (card.type === 'dim7' || card.type === 'wholeTone') title = 'starting on ' + title;
+    if (card.type === 'dom7') title = 'in ' + title;
+    if (TYPE_BY_ID[card.type].articulations.length > 1) title += ' · ' + card.articulation;
+    return title;
   }
 
   function detailEn(card) {
-    var parts = [];
-    if (card.type === 'contrary') parts.push('hands start on the tonic (unison)');
-    else if (card.type === 'chromatic') parts.push('hands a major third apart');
-    else parts.push(HAND_EN[card.hand]);
-    parts.push('2 octaves');
-    parts.push(card.type === 'staccato' ? 'staccato' : 'legato');
+    var how = {
+      contrary: 'hands start on the tonic in unison',
+      chromatic: grade === 5 ? 'hands start a major third apart' : 'hands start a minor third apart',
+      chromaticSixths: 'hands a major sixth apart', thirdsApart: 'hands a third apart',
+      sixthsApart: 'hands a sixth apart'
+    };
+    var parts = [how[card.type] || HAND_EN[card.hand], card.octaves + ' octaves', card.articulation];
+    if (card.inversion) parts.push(INV_EN[card.inversion]);
+    if (card.type === 'dom7') parts.push('resolve to the tonic');
     return parts.join(' · ');
   }
 
-  function detailZh(card) {
-    var t = card.type;
-    var what;
-    if (t === 'scales') what = keyZh(card) + '音阶';
-    else if (t === 'staccato') what = keyZh(card) + '断奏音阶';
-    else if (t === 'contrary') what = keyZh(card) + '反向音阶';
-    else if (t === 'chromatic') what = '反向半音阶';
-    else if (t === 'arpeggios') what = keyZh(card) + '琶音';
-    else what = '从B开始的减七和弦琶音';
-    var how;
-    if (t === 'contrary') how = '双手从主音同音开始';
-    else if (t === 'chromatic') how = '左手升F、右手升A（相隔大三度）';
-    else if (card.hand === 'together') how = '双手';
-    else how = HAND_ZH[card.hand];
-    return [what, how, '两个八度', t === 'staccato' ? '断奏' : '连奏'].join(' · ');
+  function exerciseZh(card) {
+    var key = keyZh(card);
+    switch (card.type) {
+      case 'scales': return key + '音阶';
+      case 'staccato': return key + '断奏音阶';
+      case 'thirdsApart': return key + '双手相隔三度音阶';
+      case 'sixthsApart': return key + '双手相隔六度音阶';
+      case 'contrary': return key + '反向音阶';
+      case 'legatoThirds': return key + '三度双音连奏音阶';
+      case 'staccatoThirds': return key + '三度双音断奏音阶';
+      case 'staccatoSixths': return key + '六度双音断奏音阶';
+      case 'chromatic': return '反向半音阶';
+      case 'chromaticSixths': return '双手相隔大六度半音阶';
+      case 'wholeTone': return '从' + key + '开始的全音音阶';
+      case 'arpeggios': return key + INV_ZH[card.inversion] + '琶音';
+      case 'dom7': return key + '调属七和弦琶音，解决到主音';
+      case 'dim7': return '从' + key + '开始的减七和弦琶音';
+    }
   }
 
-  // Extra reminder shown under the card, or an empty string.
+  function handsZh(card) {
+    if (card.rhStart) return '左手从' + noteZh(card.tonic) + '、右手从' + noteZh(card.rhStart) + '开始';
+    if (card.type === 'contrary') return '双手从同一个主音开始';
+    return HAND_ZH[card.hand];
+  }
+
+  function detailZh(card) {
+    return [exerciseZh(card), handsZh(card), card.octaves === 4 ? '四个八度' : '两个八度',
+      ART_ZH[card.articulation]].join('，');
+  }
+
   function reminderZh(card) {
     if (card.minorChoice) return '和声小调或旋律小调由你自选，考官不会指定。';
     if (card.type === 'contrary' && card.quality === 'harmonic') return '这一项指定为和声小调。';
     if (card.type === 'chromatic') return '右手上行、左手下行，两个八度后再一起回到起点。';
-    if (card.type === 'dim7') return 'B、D、F、A♭，原位上行两个八度再下行。';
+    if (card.type === 'thirdsApart' || card.type === 'legatoThirds' || card.type === 'staccatoThirds') return '起始三度的低音是主音。';
+    if (card.type === 'sixthsApart' || card.type === 'staccatoSixths') return '起始六度的高音是主音。';
+    if (card.inversion === 1) return '从和弦的三音开始。';
+    if (card.inversion === 2) return '从和弦的五音开始。';
+    if (card.type === 'dim7' && grade === 5) return 'B、D、F、降A，原位上行两个八度再下行。';
     return '';
   }
 
-  // ---------- What the examiner says ----------
-
-  function pick(list, seed) {
-    return list[Math.abs(seed || 0) % list.length];
-  }
-
-  /*
-   * English request in the style of an examiner. style 'plain' always uses the first wording,
-   * 'varied' picks among natural alternatives using `seed`. Every wording keeps the key name
-   * in the middle of the sentence so speech engines read "A" as a letter, not an article.
-   */
-  function speechEn(card, style, seed) {
+  function requestEn(card) {
     var key = keyEn(card, 'spoken');
     var hand = HAND_EN[card.hand];
-    var s = style === 'varied' ? seed : 0;
     switch (card.type) {
-      case 'scales':
-        return pick([
-          'Scale of ' + key + ', hands together.',
-          'Could I have the scale of ' + key + ', hands together, please?',
-          'Now the scale of ' + key + ', hands together.',
-          'Let’s have the scale of ' + key + ', hands together, please.'
-        ], s);
-      case 'staccato':
-        return pick([
-          'Staccato scale of ' + key + ', ' + hand + '.',
-          'Could I have the staccato scale of ' + key + ', ' + hand + ', please?',
-          'Now the staccato scale of ' + key + ', ' + hand + '.'
-        ], s);
-      case 'contrary':
-        return pick([
-          'Contrary-motion scale of ' + key + '.',
-          'Could I have the contrary-motion scale of ' + key + ', please?',
-          'Now the scale of ' + key + ', in contrary motion.'
-        ], s);
+      case 'scales': return 'scale of ' + key + ', hands together';
+      case 'staccato': return 'staccato scale of ' + key + ', ' + hand;
+      case 'thirdsApart': return 'scale of ' + key + ', hands a third apart';
+      case 'sixthsApart': return 'scale of ' + key + ', hands a sixth apart';
+      case 'contrary': return grade === 5 ? 'contrary-motion scale of ' + key : 'scale of ' + key + ' in contrary motion';
+      case 'legatoThirds': return 'legato scale of ' + key + ' in thirds, ' + hand;
+      case 'staccatoThirds': return 'staccato scale of ' + key + ' in thirds, ' + hand;
+      case 'staccatoSixths': return 'staccato scale of ' + key + ' in sixths, ' + hand;
       case 'chromatic':
-        return pick([
-          'Chromatic contrary-motion scale, starting on F sharp and A sharp.',
-          'Could I have the chromatic scale in contrary motion, starting on F sharp and A sharp, please?',
-          'Now the chromatic contrary-motion scale, starting on F sharp and A sharp.'
-        ], s);
-      case 'arpeggios':
-        return pick([
-          'Arpeggio of ' + key + ', hands together.',
-          'Could I have the arpeggio of ' + key + ', hands together, please?',
-          'Now the arpeggio of ' + key + ', hands together.',
-          'Let’s hear the arpeggio of ' + key + ', hands together.'
-        ], s);
-      default:
-        return pick([
-          'Diminished seventh, starting on B, ' + hand + '.',
-          'Could I have the diminished seventh starting on B, ' + hand + ', please?',
-          'Now the diminished seventh, starting on B, ' + hand + '.'
-        ], s);
+      case 'chromaticSixths':
+        var motion = card.type === 'chromatic' ? 'in contrary motion' : 'a major sixth apart';
+        return 'chromatic scale ' + motion + ', starting on ' + key + ' in the left hand and ' +
+          T.formatName(card.rhStart, 'spoken') + ' in the right hand';
+      case 'wholeTone': return 'whole tone scale starting on ' + key + ', hands together';
+      case 'arpeggios': return 'arpeggio of ' + key + (card.inversion ? ' in ' + INV_EN[card.inversion] : '') + ', hands together';
+      case 'dom7': return 'dominant seventh in the key of ' + key + ', resolving to the tonic, hands together';
+      case 'dim7': return 'diminished seventh, starting on ' + key + ', ' + hand;
+    }
+  }
+
+  function speechEn(card, style, seed) {
+    var request = requestEn(card);
+    if (TYPE_BY_ID[card.type].articulations.length > 1) request += ', ' + card.articulation;
+    switch (style === 'varied' ? Math.abs(seed || 0) % 4 : 0) {
+      case 1: return 'Could I have the ' + request + ', please?';
+      case 2: return 'Now the ' + request + '.';
+      case 3: return 'Let’s hear the ' + request + '.';
+      default: return request.charAt(0).toUpperCase() + request.slice(1) + '.';
     }
   }
 
   function speechZh(card) {
-    var t = card.type;
-    if (t === 'scales') return keyZh(card) + '音阶，双手。';
-    if (t === 'staccato') return keyZh(card) + '断奏音阶，' + HAND_ZH[card.hand] + '。';
-    if (t === 'contrary') return keyZh(card) + '反向音阶。';
-    if (t === 'chromatic') return '反向半音阶，左手从升F、右手从升A开始。';
-    if (t === 'arpeggios') return keyZh(card) + '琶音，双手。';
-    return '从B开始的减七和弦琶音，' + HAND_ZH[card.hand] + '。';
+    var request = exerciseZh(card);
+    if (card.type !== 'contrary') request += '，' + handsZh(card);
+    if (TYPE_BY_ID[card.type].articulations.length > 1) request += '，' + ART_ZH[card.articulation];
+    return request + '。';
   }
 
   // ---------- Notes for the demo ----------
@@ -300,147 +321,136 @@
   // Mode used for the demo of a minor key. `minorForm` is the player's choice for
   // "candidate's choice" keys and is ignored where the syllabus fixes the form.
   function modeFor(card, minorForm) {
-    if (card.quality === 'major') return 'major';
-    if (card.quality === 'harmonic') return 'harmonic';
-    return minorForm === 'melodic' ? 'melodic' : 'harmonic';
+    if (card.quality === 'minor') return minorForm === 'melodic' ? 'melodic' : 'harmonic';
+    return card.quality;
   }
 
-  var RH_FLOOR = 55; // right hand starts between G3 and F#4, left hand an octave lower
-
-  function lines(card, minorForm) {
-    var pc = T.pitchClass(T.parseNote(card.tonic));
-    var rhTonic = T.midiAtOrAbove(pc, RH_FLOOR);
-    var lhTonic = rhTonic - 12;
-    var oct = 2;
+  function lines(card, minorForm, octaves) {
     var t = card.type;
-    if (t === 'scales' || t === 'staccato') {
-      var mode = modeFor(card, minorForm);
+    var oct = octaves || card.octaves;
+    var pc = T.pitchClass(T.parseNote(card.tonic));
+    // Leave room for four octaves and a chord inversion on an 88 key piano.
+    var rhTonic = T.midiAtOrAbove(pc, card.octaves === 4 ? 42 : 55);
+    var lhTonic = rhTonic - 12;
+
+    function scale(midi, degree, downFirst) {
+      return T.scaleLine({ tonic: card.tonic, mode: modeFor(card, minorForm),
+        tonicMidi: midi, startDegree: degree, downFirst: downFirst, octaves: oct });
+    }
+
+    if (t === 'chromatic' || t === 'chromaticSixths') {
+      var lhStart = T.midiAtOrAbove(pc, t === 'chromatic' ? 53 : 36);
+      var rhStart = T.midiAtOrAbove(T.pitchClass(T.parseNote(card.rhStart)), lhStart);
+      var upperLine = { startMidi: rhStart, startName: card.rhStart, octaves: oct };
+      if (t === 'chromaticSixths') return T.chromaticSixths(upperLine);
       return {
-        rh: T.scaleLine({ tonic: card.tonic, mode: mode, octaves: oct, tonicMidi: rhTonic }),
-        lh: T.scaleLine({ tonic: card.tonic, mode: mode, octaves: oct, tonicMidi: lhTonic })
+        rh: T.chromaticLine(upperLine),
+        lh: T.chromaticLine({ startMidi: lhStart, startName: card.tonic, octaves: oct, downFirst: true })
       };
     }
-    if (t === 'contrary') {
-      var m = modeFor(card, minorForm);
+    if (t === 'contrary') return { rh: scale(rhTonic), lh: scale(rhTonic, 0, true) };
+    if (t === 'thirdsApart') return { rh: scale(rhTonic, 2), lh: scale(rhTonic) };
+    if (t === 'sixthsApart') return { rh: scale(rhTonic), lh: scale(rhTonic, -5) };
+    if (t === 'legatoThirds' || t === 'staccatoThirds' || t === 'staccatoSixths') {
+      var lower = t === 'staccatoSixths' ? -5 : 0;
+      var upper = t === 'staccatoSixths' ? 0 : 2;
       return {
-        rh: T.scaleLine({ tonic: card.tonic, mode: m, octaves: oct, tonicMidi: rhTonic }),
-        lh: T.scaleLine({ tonic: card.tonic, mode: m, octaves: oct, tonicMidi: rhTonic, downFirst: true })
+        rh: scale(rhTonic, lower), rhUpper: scale(rhTonic, upper),
+        lh: scale(lhTonic, lower), lhUpper: scale(lhTonic, upper)
       };
     }
-    if (t === 'chromatic') {
-      // LH on the F sharp below middle C, RH on the A sharp a major third above it.
-      return {
-        rh: T.chromaticLine({ startMidi: 58, startName: card.rhStart, octaves: oct }),
-        lh: T.chromaticLine({ startMidi: 54, startName: card.tonic, octaves: oct, downFirst: true })
-      };
+
+    function parallel(midi) {
+      var opts = { tonic: card.tonic, tonicMidi: midi, octaves: oct };
+      switch (t) {
+        case 'arpeggios':
+          opts.quality = card.quality;
+          opts.inversion = card.inversion;
+          return T.arpeggioLine(opts);
+        case 'dom7': return T.dominantSeventhLine(opts);
+        case 'dim7': return T.diminishedSeventhLine({ root: card.tonic, rootMidi: midi, octaves: oct });
+        case 'wholeTone': return T.wholeToneLine(opts);
+        default: return scale(midi);
+      }
     }
-    if (t === 'arpeggios') {
-      return {
-        rh: T.arpeggioLine({ tonic: card.tonic, quality: card.quality, octaves: oct, tonicMidi: rhTonic }),
-        lh: T.arpeggioLine({ tonic: card.tonic, quality: card.quality, octaves: oct, tonicMidi: lhTonic })
-      };
-    }
-    return {
-      rh: T.diminishedSeventhLine({ root: card.tonic, rootMidi: rhTonic, octaves: oct }),
-      lh: T.diminishedSeventhLine({ root: card.tonic, rootMidi: lhTonic, octaves: oct })
-    };
+    return { rh: parallel(rhTonic), lh: parallel(lhTonic) };
   }
 
-  /*
-   * Everything the player needs: time slots of notes that sound together, the length of
-   * one note at the guide speed times `speed`, articulation and where accents fall.
-   */
   function performance(card, opts) {
     opts = opts || {};
-    var l = lines(card, opts.minorForm);
-    var type = TYPE_BY_ID[card.type];
-    var sp = SPEED[type.speed];
-    var stepDur = 60 / sp.minim / sp.notesPerBeat / (opts.speed || 1);
-    var steps;
-    if (card.hand === 'rh') steps = l.rh.map(function (n) { return [{ midi: n.midi, hand: 'rh' }]; });
-    else if (card.hand === 'lh') steps = l.lh.map(function (n) { return [{ midi: n.midi, hand: 'lh' }]; });
-    else steps = l.rh.map(function (n, i) { return [{ midi: n.midi, hand: 'rh' }, { midi: l.lh[i].midi, hand: 'lh' }]; });
-    // Light accent on every fourth note: one minim beat of four quavers, as in the speed guide.
-    var group = sp.notesPerBeat;
+    var parts = lines(card, opts.minorForm);
+    var speed = SPEED[TYPE_BY_ID[card.type].speed];
+    var hands = card.hand === 'together' ? ['rh', 'lh'] : [card.hand];
+    var steps = parts.rh.map(function (_, i) {
+      var notes = [];
+      hands.forEach(function (hand) {
+        notes.push({ midi: parts[hand][i].midi, hand: hand });
+        var upper = parts[hand + 'Upper'];
+        if (upper) notes.push({ midi: upper[i].midi, hand: hand });
+      });
+      return notes;
+    });
     return {
       steps: steps,
-      lines: l,
-      stepDur: stepDur,
-      staccato: card.type === 'staccato',
-      groupSize: group,
-      minim: sp.minim
+      lines: parts,
+      stepDur: 60 / speed.minim / speed.notesPerBeat / (opts.speed || 1),
+      staccato: card.articulation === 'staccato',
+      groupSize: speed.notesPerBeat,
+      minim: speed.minim
     };
   }
 
-  // Spelled notes for one octave going up (and down where it differs), for display.
   function octaveNames(card, minorForm) {
-    var t = card.type;
-    var up;
-    var down = null;
-    if (t === 'scales' || t === 'staccato' || t === 'contrary') {
-      var mode = modeFor(card, minorForm);
-      var u = T.degrees(card.tonic, mode, 'up').map(function (n) { return T.noteName(n, 'ascii'); });
-      var d = T.degrees(card.tonic, mode, 'down').map(function (n) { return T.noteName(n, 'ascii'); });
-      up = u.concat([u[0]]);
-      if (d.join() !== u.join()) down = [u[0]].concat(d.slice(1).reverse(), [u[0]]);
-    } else if (t === 'arpeggios') {
-      up = T.arpeggioLine({ tonic: card.tonic, quality: card.quality, octaves: 1, tonicMidi: 60 }).slice(0, 4).map(function (n) { return n.name; });
-    } else if (t === 'dim7') {
-      up = T.diminishedSeventhLine({ root: card.tonic, rootMidi: 59, octaves: 1 }).slice(0, 5).map(function (n) { return n.name; });
-    } else {
-      up = null;
+    var parts = lines(card, minorForm, 1);
+    var turn = (parts.rh.length - 1) / 2;
+    function name(note) { return note.name; }
+    function outward(part) { return part.slice(0, turn + 1).map(name); }
+    var names = { up: outward(parts.rh), down: null };
+    if (parts.rhUpper) {
+      names.lower = names.up;
+      names.upper = outward(parts.rhUpper);
+    } else if (card.rhStart || card.type === 'thirdsApart' || card.type === 'sixthsApart') {
+      names.rh = names.up;
+      names.lh = outward(parts.lh);
+    } else if (card.type === 'dom7') {
+      names.resolution = parts.rh.slice(-2).map(name);
+    } else if (modeFor(card, minorForm) === 'melodic' && card.type !== 'arpeggios') {
+      names.down = parts.rh.slice(turn).map(name);
     }
-    return { up: up, down: down };
+    return names;
   }
 
-  // Keys to mark on the one octave keyboard.
   function keyboardSpec(card, minorForm) {
-    var pc = T.pitchClass(T.parseNote(card.tonic));
-    var low = 60 + pc;
-    var marks = [];
-    function mark(name, offset, kind) {
-      marks.push({ midi: low + offset, label: T.formatName(name, 'unicode'), kind: kind });
-    }
-    if (card.type === 'chromatic') {
-      // One octave from F sharp, with both starting notes (F sharp and A sharp) marked.
-      low = 66;
-      return {
-        low: low,
-        high: low + 12,
-        marks: [
-          { midi: low, label: 'F♯', kind: 'tonic' },
-          { midi: low + 4, label: 'A♯', kind: 'tonic' }
-        ]
-      };
-    }
+    function pc(name) { return T.pitchClass(T.parseNote(name)); }
     var names = octaveNames(card, minorForm);
-    var mode = card.type === 'arpeggios' || card.type === 'dim7' ? null : modeFor(card, minorForm);
-    if (mode) {
-      var semUp = T.MODES[mode].up;
-      var semDown = T.MODES[mode].down;
-      var spelledUp = T.degrees(card.tonic, mode, 'up');
-      var spelledDown = T.degrees(card.tonic, mode, 'down');
-      semUp.forEach(function (s, i) {
-        mark(T.noteName(spelledUp[i], 'ascii'), s, i === 0 ? 'tonic' : 'up');
-      });
-      semDown.forEach(function (s, i) {
-        if (semUp.indexOf(s) === -1) mark(T.noteName(spelledDown[i], 'ascii'), s, 'down-only');
-      });
-      mark(card.tonic, 12, 'tonic');
+    var ascending = names.lower || names.lh || names.up;
+    var first = ascending[0];
+    var low = 60 + pc(first);
+    var marks = [];
+
+    function mark(name, kind, octaveEnd) {
+      var midi = low + (octaveEnd ? 12 : T.mod(pc(name) - pc(first), 12));
+      if (marks.some(function (item) { return item.midi === midi; })) return;
+      marks.push({ midi: midi, label: T.formatName(name, 'unicode'), kind: kind });
+    }
+
+    if (card.rhStart) {
+      mark(card.tonic, 'tonic');
+      mark(card.rhStart, 'tonic');
     } else {
-      var semis = card.type === 'dim7' ? [0, 3, 6, 9] : card.quality === 'minor' ? [0, 3, 7] : [0, 4, 7];
-      names.up.slice(0, semis.length).forEach(function (name, i) {
-        mark(name, semis[i], i === 0 ? 'tonic' : 'up');
+      var otherStart = names.upper ? names.upper[0] : names.rh ? names.rh[0] : null;
+      ascending.forEach(function (name, i) {
+        mark(name, name === first || name === otherStart ? 'tonic' : 'up', i === ascending.length - 1);
       });
-      mark(card.tonic, 12, 'tonic');
+      if (names.down) names.down.forEach(function (name) { mark(name, 'down-only'); });
+      if (names.resolution) mark(card.tonic, 'tonic');
     }
     return { low: low, high: low + 12, marks: marks };
   }
 
   // ---------- Mock exam ----------
 
-  var QUALITY_ORDER = { major: 0, minor: 1, harmonic: 1, chromatic: 0, dim7: 0 };
-  var EXTRA_WEIGHT = { scales: 4, arpeggios: 4, staccato: 1.2, contrary: 1, chromatic: 0, dim7: 0 };
+  var EXTRA_WEIGHT = { scales: 4, arpeggios: 4, staccato: 1.2 };
 
   /*
    * Picks the cards for a mock exam the way the syllabus says examiners ask: at least one of
@@ -450,6 +460,7 @@
    * work, random() for tests.
    */
   function buildExam(opts) {
+    opts = opts || {};
     var size = opts.size || 10;
     var rand = opts.random || Math.random;
     var weight = opts.weight || function () { return 1; };
@@ -471,7 +482,8 @@
     var chosen = {};
     var used = {};
     function keyOf(c) {
-      return c.type + ':' + c.tonic + ':' + c.quality;
+      var quality = c.quality === 'melodic' ? 'harmonic' : c.quality;
+      return c.type + ':' + c.tonic + ':' + quality;
     }
     function take(card) {
       chosen[card.type] = (chosen[card.type] || []).concat([card]);
@@ -485,13 +497,14 @@
 
     var extra = Math.max(0, size - TYPES.length);
     while (extra > 0) {
-      var pool = CARDS.filter(function (c) { return free(c) && EXTRA_WEIGHT[c.type] > 0; });
+      var pool = CARDS.filter(free);
       if (!pool.length) break;
-      take(pickWeighted(pool, function (c) { return EXTRA_WEIGHT[c.type] * weight(c); }));
+      take(pickWeighted(pool, function (c) { return (EXTRA_WEIGHT[c.type] || 1) * weight(c); }));
       extra--;
     }
 
-    ['scales', 'arpeggios'].forEach(function (id) {
+    TYPES.forEach(function (t) {
+      var id = t.id;
       var list = chosen[id] || [];
       if (list.length < 2) return;
       var hasMajor = list.some(function (c) { return c.quality === 'major'; });
@@ -503,16 +516,6 @@
       take(pickWeighted(options, weight));
       chosen[id] = chosen[id].filter(function (c) { return c !== swapOut; });
     });
-
-    var separate = [];
-    TYPES.forEach(function (t) {
-      (chosen[t.id] || []).forEach(function (c) { if (c.hand !== 'together') separate.push(c); });
-    });
-    if (separate.length >= 2 && separate.every(function (c) { return c.hand === separate[0].hand; })) {
-      var flip = separate[separate.length - 1];
-      var twin = CARD_BY_ID[[flip.type, flip.tonic, flip.quality, flip.hand === 'rh' ? 'lh' : 'rh'].join(':')];
-      chosen[flip.type] = chosen[flip.type].map(function (c) { return c === flip ? twin : c; });
-    }
 
     var typeOrder = TYPES.map(function (t) { return t.id; });
     if (opts.order === 'shuffle') {
@@ -527,13 +530,31 @@
     typeOrder.forEach(function (id) {
       (chosen[id] || [])
         .slice()
-        .sort(function (a, b) { return QUALITY_ORDER[a.quality] - QUALITY_ORDER[b.quality]; })
+        .sort(function (a, b) { return Number(b.quality === 'major') - Number(a.quality === 'major'); })
         .forEach(function (c) { out.push(c); });
     });
+    function balance(field, first, second, eligible) {
+      var choices = out.filter(eligible);
+      var count = choices.filter(function (c) { return c[field] === first; }).length;
+      var difference = count * 2 - choices.length;
+      var over = difference > 0 ? first : second;
+      var options = choices.filter(function (c) { return c[field] === over; });
+      var otherField = field === 'hand' ? 'articulation' : 'hand';
+      for (var i = Math.floor(Math.abs(difference) / 2); i > 0; i--) {
+        var from = options.splice(Math.floor(rand() * options.length), 1)[0];
+        out[out.indexOf(from)] = byType[from.type].find(function (c) {
+          return c.tonic === from.tonic && c.quality === from.quality &&
+            c[field] !== from[field] && c[otherField] === from[otherField];
+        });
+      }
+    }
+    balance('hand', 'rh', 'lh', function (c) { return c.hand !== 'together'; });
+    balance('articulation', 'legato', 'staccato', function (c) { return TYPE_BY_ID[c.type].articulations.length > 1; });
     return out;
   }
 
   return {
+    grade: grade,
     TYPES: TYPES,
     TYPE_BY_ID: TYPE_BY_ID,
     CARDS: CARDS,

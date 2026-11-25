@@ -1,7 +1,7 @@
 {
-  "name": "五级音阶抽考",
+  "name": "钢琴音阶抽考",
   "short_name": "音阶抽考",
-  "description": "ABRSM 钢琴五级音阶与琶音自测卡片，带考官语音和示范。",
+  "description": "ABRSM 钢琴五级、七级和八级音阶与琶音自测卡片，带考官语音和示范。",
   "lang": "zh-CN",
   "start_url": "./",
   "scope": "./",

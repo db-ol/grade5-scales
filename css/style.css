@@ -246,6 +246,15 @@ a {
   height: 20px;
 }
 
+#grade-select {
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background-color: var(--surface);
+  font-weight: 600;
+}
+
 /* Views */
 
 main {
